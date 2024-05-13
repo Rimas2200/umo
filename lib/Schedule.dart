@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 
 class Schedule extends StatefulWidget {
   @override
@@ -169,8 +171,9 @@ class ScheduleItem {
   String? classroom;
   String? pair_name;
   String? selectedGroup;
+  String? pair_time;
 
-  ScheduleItem({this.discipline, this.teacher, this.classroom, this.pair_name, this.selectedGroup});
+  ScheduleItem({this.discipline, this.teacher, this.classroom, this.pair_name, this.selectedGroup, this.pair_time});
 }
 
 class DayAccordion extends StatefulWidget {
@@ -196,63 +199,45 @@ class DayAccordion extends StatefulWidget {
 
 }
 
-
 class _DayAccordionState extends State<DayAccordion> {
   bool _isExpanded = false;
+  List<String> _disciplines = [];
   List<List<ScheduleItem>> _schedule = [];
-  final List<String> _disciplines = ['Математический анализ', 'Операционные системы', 'Дифференциальные уравнения'];
   final List<String> _teachers = ['Иванов С.А.', 'Плеханова М.В.', 'Алеева С.Р.'];
   final List<String> _classrooms = ['А17', 'А13', 'А11'];
-  final List<String> _pair_name = ['1', '2', '3', '4', '5', '6', '7', '8'];
-  // List<String> _pair_time = ['10:00', '11:00', '12:00'];
+  final List<String> _pair_name = ['', '1', '2', '3', '4', '5', '6', '7', '8'];
+  final List<String> _pair_time = ['', '10:00', '11:00', '12:00'];
+  bool _isDropdownOpen = false;
+  String _searchQuery = '';
+  List<String> _filteredDisciplines = [];
 
   @override
-  void didUpdateWidget(DayAccordion oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.selectedGroup != oldWidget.selectedGroup) {
-      _clearSchedule();
+  void initState() {
+    super.initState();
+    _fetchDisciplines();
+  }
+
+  Future<void> _fetchDisciplines() async {
+    try {
+      final response = await http.get(Uri.parse('http://localhost:3000/discipline'));
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = jsonDecode(response.body);
+        if (data.containsKey('disciplines')) {
+          final List<dynamic> disciplines = data['disciplines'];
+          _disciplines = disciplines.map((item) => item['discipline_name'] as String).toList();
+          _disciplines = _disciplines.toSet().toList();
+          setState(() {
+            _disciplines = _disciplines;
+          });
+        } else {
+          throw Exception('Invalid data format: Missing "disciplines" key');
+        }
+      } else {
+        throw Exception('Failed to load data: ${response.statusCode}');
+      }
+    } catch (error) {
+      print('Error: $error');
     }
-  }
-  void _saveData() {
-    widget._saveData(_schedule);
-  }
-
-  void _clearSchedule() {
-    setState(() {
-      _schedule.clear();
-    });
-  }
-
-  void _addScheduleRow() {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        int numberOfBlocks = 1;
-        return AlertDialog(
-          title: const Text('Введите количество подгрупп'),
-          content: TextField(
-            keyboardType: TextInputType.number,
-            onChanged: (value) {
-              numberOfBlocks = int.tryParse(value) ?? 1;
-            },
-          ),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () {
-                setState(() {
-                  _schedule.add(List.generate(
-                    numberOfBlocks,
-                        (index) => ScheduleItem(selectedGroup: widget.selectedGroup),
-                  ));
-                });
-                Navigator.of(context).pop();
-              },
-              child: const Text('Добавить'),
-            ),
-          ],
-        );
-      },
-    );
   }
 
   @override
@@ -295,173 +280,173 @@ class _DayAccordionState extends State<DayAccordion> {
                         children: row
                             .map(
                               (item) => Expanded(
-                                child: Column(
-                                  children: [
-                                    Container(
-                                      decoration: BoxDecoration(
-                                        border: Border.all(
-                                          color: Colors.grey,
-                                          width: 1.0,
-                                        ),
-                                        borderRadius: BorderRadius.circular(8.0),
-                                      ),
-                                      padding: const EdgeInsets.all(8.0),
-                                      child: Column(
+                            child: Column(
+                              children: [
+                                Container(
+                                  decoration: BoxDecoration(
+                                    border: Border.all(
+                                      color: Colors.grey,
+                                      width: 1.0,
+                                    ),
+                                    borderRadius: BorderRadius.circular(8.0),
+                                  ),
+                                  padding: const EdgeInsets.all(8.0),
+                                  child: Column(
+                                    children: [
+                                      Row(
                                         children: [
-                                          Row(
-                                            children: [
-                                              Expanded(
-                                                child: DropdownButtonFormField<String>(
-                                                  value: item.pair_name,
-                                                  hint: const Text('1'),
-                                                  onChanged: (newValue) {
-                                                    setState(() {
-                                                      item.pair_name = newValue!;
-                                                    });
-                                                  },
-                                                  items: _pair_name.map((pairName) {
-                                                    return DropdownMenuItem<String>(
-                                                      value: pairName,
-                                                      child: Text(pairName),
-                                                    );
-                                                  }).toList(),
-                                                ),
-                                              ),
-                                              const SizedBox(width: 8),
-                                              Expanded(
-                                                child: DropdownButtonFormField<String>(
-                                                  value: item.discipline,
-                                                  hint: const Text('Дисциплина'),
-                                                  onChanged: (newValue) {
-                                                    setState(() {
-                                                      item.discipline = newValue!;
-                                                    });
-                                                  },
-                                                  items: _disciplines.map((discipline) {
-                                                    return DropdownMenuItem<String>(
-                                                      value: discipline,
-                                                      child: Text(discipline),
-                                                    );
-                                                  }).toList(),
-                                                ),
-                                              ),
-                                            ],
+                                          Expanded(
+                                            flex: 3,
+                                            child: DropdownButtonFormField<String>(
+                                              value: item.pair_name,
+                                              hint: const Text('№'),
+                                              onChanged: (newValue) {
+                                                setState(() {
+                                                  item.pair_name = newValue!;
+                                                });
+                                              },
+                                              items: _pair_name.map((pairName) {
+                                                return DropdownMenuItem<String>(
+                                                  value: pairName,
+                                                  child: Text(pairName),
+                                                );
+                                              }).toList(),
+                                            ),
                                           ),
-
-                                          const SizedBox(height: 8),
-                                          Row(
-                                            children: [
-                                              Expanded(
-                                                child: DropdownButtonFormField<String>(
-                                                  value: item.teacher,
-                                                  hint: const Text('Преподаватель'),
-                                                  onChanged: (newValue) {
-                                                    setState(() {
-                                                      item.teacher = newValue!;
-                                                    });
-                                                  },
-                                                  items: _teachers.map((teacher) {
-                                                    return DropdownMenuItem<String>(
-                                                      value: teacher,
-                                                      child: Text(teacher),
-                                                    );
-                                                  }).toList(),
-                                                ),
-                                              ),
-                                              const SizedBox(width: 8),
-                                              Expanded(
-                                                child: DropdownButtonFormField<String>(
-                                                  value: item.classroom,
-                                                  hint: const Text('Аудитория'),
-                                                  onChanged: (newValue) {
-                                                    setState(() {
-                                                      item.classroom = newValue!;
-                                                    });
-                                                  },
-                                                  items: _classrooms.map((classroom) {
-                                                    return DropdownMenuItem<String>(
-                                                      value: classroom,
-                                                      child: Text(classroom),
-                                                    );
-                                                  }).toList(),
-                                                ),
-                                              ),
-                                            ],
+                                          Expanded(
+                                            flex: 4,
+                                            child: DropdownButtonFormField<String>(
+                                              value: item.pair_time,
+                                              hint: const Text('Время'),
+                                              onChanged: (newValue) {
+                                                setState(() {
+                                                  item.pair_time = newValue!;
+                                                });
+                                              },
+                                              items: _pair_time.map((pairName) {
+                                                return DropdownMenuItem<String>(
+                                                  value: pairName,
+                                                  child: Text(pairName),
+                                                );
+                                              }).toList(),
+                                            ),
                                           ),
-                                          const SizedBox(height: 8),
-                                          Row(
-                                            children: [
-                                              Expanded(
-                                                child: IconButton(
-                                                  icon: const Tooltip(
-                                                    message: 'Сохранить',
-                                                    child: Icon(Icons.save),
-                                                  ),
-                                                  onPressed: () {
-                                                    // _showWeekRangeDialog();
-                                                    _saveData();
-                                                  },
-                                                ),
-                                              ),
-                                                Expanded(
-                                                child: ElevatedButton(
-                                                  onPressed: () {
-                                                    // _showWeekRangeDialog();
-                                                    _saveData();
-                                                  },
-                                                  child: const Text('Диапазон недели'),
-                                                ),
-                                              ),
-                                              const SizedBox(width: 8),
-                                              Expanded(
-                                                child: DropdownButtonFormField<String>(
-                                                  value: 'pair',
-                                                  onChanged: (newValue) {
-                                                    setState(() {
-                                                      // Обработка изменения
-                                                    });
-                                                  },
-                                                  items: const [
-                                                    DropdownMenuItem<String>(
-                                                      value: 'pair',
-                                                      child: Text('Номер пары'),
-                                                    ),
-                                                    DropdownMenuItem<String>(
-                                                      value: 'time',
-                                                      child: Text('Время'),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                              const SizedBox(width: 5),
-                                              Expanded(
-                                                child: DropdownButtonFormField<String>(
-                                                  value: 'classroom',
-                                                  onChanged: (newValue) {
-                                                    setState(() {
-                                                      // Обработка изменения
-                                                    });
-                                                  },
-                                                  items: const [
-                                                    DropdownMenuItem<String>(
-                                                      value: 'classroom',
-                                                      child: Text('Аудитория'),
-                                                    ),
-                                                    DropdownMenuItem<String>(
-                                                      value: 'address',
-                                                      child: Text('Адрес'),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                            ],
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            flex: 20,
+                                            child: DropdownButtonFormField<String>(
+                                              value: item.discipline,
+                                              hint: const Text('Дисциплина'),
+                                              onChanged: (newValue) {
+                                                setState(() {
+                                                  item.discipline = newValue!;
+                                                });
+                                              },
+                                              items: _disciplines.map((discipline) {
+                                                return DropdownMenuItem<String>(
+                                                  value: discipline,
+                                                  child: Text(discipline),
+                                                );
+                                              }).toList(),
+                                            ),
                                           ),
                                         ],
                                       ),
-                                    ),
-                                  ],
+
+                                      const SizedBox(height: 8),
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: DropdownButtonFormField<String>(
+                                              value: item.teacher,
+                                              hint: const Text('Преподаватель'),
+                                              onChanged: (newValue) {
+                                                setState(() {
+                                                  item.teacher = newValue!;
+                                                });
+                                              },
+                                              items: _teachers.map((teacher) {
+                                                return DropdownMenuItem<String>(
+                                                  value: teacher,
+                                                  child: Text(teacher),
+                                                );
+                                              }).toList(),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: DropdownButtonFormField<String>(
+                                              value: item.classroom,
+                                              hint: const Text('Аудитория'),
+                                              onChanged: (newValue) {
+                                                setState(() {
+                                                  item.classroom = newValue!;
+                                                });
+                                              },
+                                              items: _classrooms.map((classroom) {
+                                                return DropdownMenuItem<String>(
+                                                  value: classroom,
+                                                  child: Text(classroom),
+                                                );
+                                              }).toList(),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            flex: 1,
+                                            child: IconButton(
+                                              icon: const Tooltip(
+                                                message: 'Сохранить',
+                                                child: Icon(Icons.save),
+                                              ),
+                                              onPressed: () {
+                                                // _showWeekRangeDialog();
+                                                _saveData();
+                                              },
+                                            ),
+                                          ),
+                                          Expanded(
+                                            flex: 3,
+                                            child: ElevatedButton(
+                                              onPressed: () {
+                                                // _showWeekRangeDialog();
+                                                _saveData();
+                                              },
+                                              child: const Text('Диапазон недели'),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            flex: 4,
+                                            child: DropdownButtonFormField<String>(
+                                              value: item.classroom,
+                                              hint: const Text('Адрес'),
+                                              onChanged: (newValue) {
+                                                setState(() {
+                                                  item.classroom = newValue!;
+                                                });
+                                              },
+                                              items: _classrooms.map((classroom) {
+                                                return DropdownMenuItem<String>(
+                                                  value: classroom,
+                                                  child: Text(classroom),
+                                                );
+                                              }).toList(),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 5),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                              ),
+                              ],
+                            ),
+                          ),
                         )
                             .toList(),
                       ),
@@ -495,6 +480,49 @@ class _DayAccordionState extends State<DayAccordion> {
       ),
     );
   }
+
+  void _saveData() {
+    widget._saveData(_schedule);
+  }
+
+  void _clearSchedule() {
+    setState(() {
+      _schedule.clear();
+    });
+  }
+
+  void _addScheduleRow() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        int numberOfBlocks = 1;
+        return AlertDialog(
+          title: const Text('Введите количество подгрупп'),
+          content: TextField(
+            keyboardType: TextInputType.number,
+            onChanged: (value) {
+              numberOfBlocks = int.tryParse(value) ?? 1;
+            },
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () {
+                setState(() {
+                  _schedule.add(List.generate(
+                    numberOfBlocks,
+                        (index) => ScheduleItem(selectedGroup: widget.selectedGroup),
+                  ));
+                });
+                Navigator.of(context).pop();
+              },
+              child: const Text('Добавить'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   void _showWeekRangeDialog() {
     showDialog(
       context: context,
