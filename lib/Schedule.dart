@@ -313,7 +313,7 @@ class DayAccordion extends StatefulWidget {
         }
         final url = Uri.parse('http://localhost:3000/timetable');
         final body = jsonEncode({
-          'discipline': schedule[i][j].discipline,
+          'discipline': '${schedule[i][j].discipline} ${schedule[i][j].pair_type}',
           'classroom': schedule[i][j].classroom ?? schedule[i][j].address,
           'group_name': schedule[i][j].selectedGroup,
           'pair_name': schedule[i][j].pair_name ?? schedule[i][j].pair_time,

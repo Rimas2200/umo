@@ -243,6 +243,54 @@ app.get('/faculties', (req, res) => {
     }
   });
 });
+app.post('/faculties/insert', (req, res) => {
+  const { faculty_name, dean_fullname } = req.body;
+
+  pool.query('INSERT INTO faculty (faculty_name, dean_fullname) VALUES (?, ?)', [faculty_name, dean_fullname], (error, results) => {
+    if (error) {
+      console.error('Ошибка при выполнении запроса:', error);
+      res.status(500).json({ error: 'Ошибка сервера' });
+    } else {
+      const newFacultyId = results.insertId; // Get the last inserted id
+      console.log(`Добавлен новый факультет с id ${newFacultyId}`);
+      res.status(201).json({ id: newFacultyId, message: 'Факультет успешно добавлен' });
+    }
+  });
+});
+app.put('/faculties/update/:id', (req, res) => {
+  const id = req.params.id;
+  const { faculty_name, dean_fullname } = req.body;
+
+  pool.query(
+    'UPDATE faculty SET faculty_name = ?, dean_fullname = ? WHERE id = ?',
+    [faculty_name, dean_fullname, id],
+    (error, results) => {
+      if (error) {
+        console.error('Ошибка при выполнении запроса:', error);
+        res.status(500).json({ error: 'Ошибка сервера' });
+      } else {
+        console.log(`Факультет с id ${id} успешно отредактирован`);
+        res.status(200).json({ message: 'Факультет успешно отредактирован' });
+      }
+    }
+  );
+});
+
+
+
+app.delete('/faculties/:id', (req, res) => {
+  const facultyId = req.params.id;
+
+  pool.query('DELETE FROM faculty WHERE id = ?', [facultyId], (error, results) => {
+    if (error) {
+      console.error('Ошибка при выполнении запроса:', error);
+      res.status(500).json({ error: 'Ошибка сервера' });
+    } else {
+      console.log(`Факультет с id ${facultyId} успешно удален`);
+      res.status(200).json({ message: 'Факультет успешно удален' });
+    }
+  });
+});
 app.get('/departament', (req, res) => {
   pool.query('SELECT * FROM departament', (error, results) => {
     if (error) {
