@@ -15,7 +15,6 @@ const pool = mysql.createPool({
 app.use(express.json());
 app.use(cors());
 
-
 app.get('/discipline', (req, res) => {
   pool.query('SELECT * FROM discipline', (error, results) => {
     console.log('запрос есть');
@@ -32,9 +31,53 @@ app.get('/discipline', (req, res) => {
   });
 });
 
+app.get('/professor', (req, res) => {
+  pool.query('SELECT last_name, CONCAT(LEFT(first_name, 1), ". ", LEFT(middle_name, 1), ".") AS initials FROM professor', (error, results) => {
+    console.log('запрос есть');
+    if (error) {
+      console.error('Ошибка при выполнении запроса:', error);
+      res.status(500).json({ error: 'Ошибка сервера' });
+    } else {
+      if (results && results.length > 0) {
+        res.json({ professors: results });
+      } else {
+        res.status(404).json({ error: 'Преподаватели не найдены' });
+      }
+    }
+  });
+});
 
+app.get('/classroom', (req, res) => {
+  pool.query('SELECT CONCAT(room_number, " Корпус: ", building) AS initials FROM classroom', (error, results) => {
+    console.log('запрос есть');
+    if (error) {
+      console.error('Ошибка при выполнении запроса:', error);
+      res.status(500).json({ error: 'Ошибка сервера' });
+    } else {
+      if (results && results.length > 0) {
+        res.json({ classrooms: results });
+      } else {
+        res.status(404).json({ error: 'Данные не найдены' });
+      }
+    }
+  });
+});
 
-
+app.get('/address', (req, res) => {
+  pool.query('SELECT * FROM address', (error, results) => {
+    console.log('запрос есть');
+    if (error) {
+      console.error('Ошибка при выполнении запроса:', error);
+      res.status(500).json({ error: 'Ошибка сервера' });
+    } else {
+      if (results && results.length > 0) {
+        res.json({ address: results });
+      } else {
+        res.status(404).json({ error: 'Данные не найдены' });
+      }
+    }
+  });
+});
 
 app.get('/userstest', (req, res) => {
   const userEmail = req.query.user_email;
@@ -54,6 +97,7 @@ app.get('/userstest', (req, res) => {
     }
   });
 });
+
 app.get('/userstests', (req, res) => {
   const userEmail = req.query.userEmail;
   if (!userEmail) {
