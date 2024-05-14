@@ -30,6 +30,21 @@ app.get('/discipline', (req, res) => {
     }
   });
 });
+app.get('/couple_type', (req, res) => {
+  pool.query('SELECT * FROM couple_type', (error, results) => {
+    console.log('запрос есть');
+    if (error) {
+      console.error('Ошибка при выполнении запроса:', error);
+      res.status(500).json({ error: 'Ошибка сервера' });
+    } else {
+      if (results && results.length > 0) {
+        res.json({ pairtype: results });
+      } else {
+        res.status(404).json({ error: 'Данные не найдены' });
+      }
+    }
+  });
+});
 
 app.get('/professor', (req, res) => {
   pool.query('SELECT last_name, CONCAT(LEFT(first_name, 1), ". ", LEFT(middle_name, 1), ".") AS initials FROM professor', (error, results) => {
@@ -224,6 +239,7 @@ app.get('/professor/:department', (req, res) => {
 app.get('/directions/:facultyId', (req, res) => {
   const facultyId = req.params.facultyId;
   pool.query('SELECT direction_abbreviation FROM direction WHERE faculty = ?', [facultyId], (error, results) => {
+  console.log("запрос есть", facultyId);
     if (error) {
       console.error('Ошибка при выполнении запроса:', error);
       res.status(500).json({ error: 'Ошибка сервера' });

@@ -1,10 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:umo/Schedule.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({required this.counter, Key? key}) : super(key: key);
 
   final int counter;
+
+  @override
+  _HomeScreenState createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  String? selectedFaculty;
 
   @override
   Widget build(BuildContext context) {
@@ -23,41 +30,55 @@ class HomeScreen extends StatelessWidget {
             const SizedBox(height: 10.0),
             Expanded(
               child: ListView(
-                children: const [
-                  FacultyButton(title: 'Математический факультет'),
-                  SizedBox(height: 1.0),
-                  FacultyButton(title: 'Институт информационных технологий'),
-                  SizedBox(height: 1.0),
-                  FacultyButton(title: 'Физический факультет'),
-                  SizedBox(height: 1.0),
-                  FacultyButton(title: 'Химический факультет'),
-                  SizedBox(height: 1.0),
-                  FacultyButton(title: 'Биологический факультет'),
-                  SizedBox(height: 1.0),
-                  FacultyButton(title: 'Институт права'),
-                  SizedBox(height: 1.0),
-                  FacultyButton(title: 'Экономический факультет'),
-                  SizedBox(height: 1.0),
-                  FacultyButton(title: 'Факультет управления'),
-                  SizedBox(height: 1.0),
-                  FacultyButton(title: 'Институт экономики отраслей'),
-                  SizedBox(height: 1.0),
-                  FacultyButton(title: 'Факультет фундаментальной медицины'),
-                  SizedBox(height: 1.0),
-                  FacultyButton(title: 'Институт образования и практической психологии'),
-                  SizedBox(height: 1.0),
-                  FacultyButton(title: 'Факультет Евразии и Востока'),
-                  SizedBox(height: 1.0),
-                  FacultyButton(title: 'Факультет лингвистики и перевода'),
-                  SizedBox(height: 1.0),
-                  FacultyButton(title: 'Факультет журналистики'),
-                  SizedBox(height: 1.0),
-                  FacultyButton(title: 'Историко-филологический факультет'),
-                  SizedBox(height: 1.0),
-                  FacultyButton(title: 'Факультет экологии'),
+                children: [
+                  FacultyButton(
+                    title: 'Математический факультет',
+                    onPressed: () {
+                      setState(() {
+                        selectedFaculty = 'Математический факультет';
+                      });
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => Schedule(selectedFaculty: selectedFaculty),
+                        ),
+                      );
+                    },
+                  ),
+                  SizedBox(height: 2),
+                  FacultyButton(
+                    title: 'Институт информационных технологий',
+                    onPressed: () {
+                      setState(() {
+                        selectedFaculty = 'Институт информационных технологий';
+                      });
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => Schedule(selectedFaculty: selectedFaculty),
+                        ),
+                      );
+                    },
+                  ),
+                  SizedBox(height: 2),
+                  FacultyButton(
+                    title: 'Физический факультет',
+                    onPressed: () {
+                      setState(() {
+                        selectedFaculty = 'Физический факультет';
+                      });
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => Schedule(selectedFaculty: selectedFaculty),
+                        ),
+                      );
+                    },
+                  ),
                 ],
               ),
             ),
+
           ],
         ),
       ),
@@ -67,18 +88,14 @@ class HomeScreen extends StatelessWidget {
 
 class FacultyButton extends StatelessWidget {
   final String title;
+  final VoidCallback onPressed;
 
-  const FacultyButton({required this.title, Key? key}) : super(key: key);
+  const FacultyButton({required this.title, required this.onPressed, Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return ElevatedButton(
-      onPressed: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => Schedule()),
-        );
-      },
+      onPressed: onPressed,
       style: ElevatedButton.styleFrom(
         foregroundColor: Colors.black38, backgroundColor: Colors.white,
         textStyle: const TextStyle(fontSize: 20.0),
@@ -91,4 +108,5 @@ class FacultyButton extends StatelessWidget {
     );
   }
 }
+
 

@@ -3,18 +3,80 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class Schedule extends StatefulWidget {
+  final String? selectedFaculty;
+
+  const Schedule({Key? key, this.selectedFaculty}) : super(key: key);
+
   @override
   _ScheduleState createState() => _ScheduleState();
 }
 
 class _ScheduleState extends State<Schedule> {
-  String _selectedGroup = 'МП-103';
-  final List<bool> _isExpanded = [false, false, false, false, false, false];
+  String _selectedGroup = 'Выберете группу!';
+  late List<bool> _isExpanded;
+  List<String> _directions = [];
+  List<String> _groups = [];
+  @override
+  void initState() {
+    super.initState();
+    _fetchDirections();
+    _isExpanded = List<bool>.generate(6, (index) => false);
+  }
 
   void _toggleExpand(int index) {
     setState(() {
       _isExpanded[index] = !_isExpanded[index];
     });
+  }
+
+  Future<void> _fetchDirections() async {
+    try {
+      final List<String> directions = await fetchDirections(widget.selectedFaculty!);
+      setState(() {
+        _directions = directions;
+      });
+    } catch (error) {
+      print('Error fetching directions: $error');
+    }
+  }
+
+  Future<List<String>> fetchDirections(String facultyId) async {
+    try {
+      final response = await http.get(Uri.parse('http://localhost:3000/directions/$facultyId'));
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        if (data.isNotEmpty) {
+          return data.map((item) => item['direction_abbreviation'] as String).toList();
+        } else {
+          return [];
+        }
+      } else {
+        throw Exception('Failed to load directions: ${response.statusCode}');
+      }
+    } catch (error) {
+      throw Exception('Error fetching directions: $error');
+    }
+  }
+  Future<void> fetchGroups(String directionId) async {
+    try {
+      final response = await http.get(Uri.parse('http://localhost:3000/group_name/$directionId'));
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        if (data.isNotEmpty) {
+          setState(() {
+            _groups = data.map((item) => item['name'] as String).toList();
+          });
+        } else {
+          setState(() {
+            _groups = [];
+          });
+        }
+      } else {
+        throw Exception('Failed to load groups: ${response.statusCode}');
+      }
+    } catch (error) {
+      throw Exception('Error fetching groups: $error');
+    }
   }
 
   Widget _buildDayButton(String day, int index) {
@@ -47,7 +109,9 @@ class _ScheduleState extends State<Schedule> {
                     message: 'Экспорт',
                     child: Icon(Icons.save_alt),
                   ),
-                  onPressed: () {},
+                  onPressed: () {
+                    print(widget.selectedFaculty);
+                  },
                 ),
                 IconButton(
                   icon: const Tooltip(
@@ -62,7 +126,6 @@ class _ScheduleState extends State<Schedule> {
                     child: Icon(Icons.save),
                   ),
                   onPressed: () {
-
                   },
                 ),
                 IconButton(
@@ -75,54 +138,35 @@ class _ScheduleState extends State<Schedule> {
                 PopupMenuButton<String>(
                   icon: const Icon(Icons.stream),
                   tooltip: 'Выбор потока',
-                  itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-                    const PopupMenuItem<String>(
-                      value: 'МП',
-                      child: Text('МП'),
-                    ),
-                    const PopupMenuItem<String>(
-                      value: 'МТ',
-                      child: Text('МТ'),
-                    ),
-                    const PopupMenuItem<String>(
-                      value: 'МН',
-                      child: Text('МН'),
-                    ),
-                  ],
-                  onSelected: (String value) {
+                  itemBuilder: (BuildContext context) {
+                    return _directions.map((direction) {
+                      return PopupMenuItem<String>(
+                        value: direction,
+                        child: Text(direction),
+                      );
+                    }).toList();
+                  },
+                  onSelected: (String value) async {
                     print('Выбран поток: $value');
+                    try {
+                      await fetchGroups(value);
+                    } catch (error) {
+                      print('Error fetching groups: $error');
+                    }
                   },
                 ),
                 PopupMenuButton<String>(
                   icon: const Icon(Icons.group),
                   tooltip: 'Выбор группы',
                   initialValue: _selectedGroup,
-                  itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-                    const PopupMenuItem<String>(
-                      value: 'МП-103',
-                      child: Text('МП-103'),
-                    ),
-                    const PopupMenuItem<String>(
-                      value: 'МП-102',
-                      child: Text('МП-102'),
-                    ),
-                    const PopupMenuItem<String>(
-                      value: 'МТ-101',
-                      child: Text('МТ-101'),
-                    ),
-                    const PopupMenuItem<String>(
-                      value: 'МТ-102',
-                      child: Text('МТ-102'),
-                    ),
-                    const PopupMenuItem<String>(
-                      value: 'МТ-103',
-                      child: Text('МТ-103'),
-                    ),
-                    const PopupMenuItem<String>(
-                      value: 'МН-101',
-                      child: Text('МН-101'),
-                    ),
-                  ],
+                  itemBuilder: (BuildContext context) {
+                    return _groups.map((group) {
+                      return PopupMenuItem<String>(
+                        value: group,
+                        child: Text(group),
+                      );
+                    }).toList();
+                  },
                   onSelected: (String? newValue) {
                     setState(() {
                       _selectedGroup = newValue!;
@@ -172,8 +216,10 @@ class ScheduleItem {
   String? selectedGroup;
   String? pair_time;
   String? address;
+  String? pair_type;
+  String? day_of_the_week;
 
-  ScheduleItem({this.discipline, this.teacher, this.classroom, this.pair_name, this.selectedGroup, this.pair_time, this.address});
+  ScheduleItem({this.discipline, this.teacher, this.classroom, this.pair_name, this.selectedGroup, this.pair_time, this.address, this.pair_type, this.day_of_the_week});
 }
 
 class DayAccordion extends StatefulWidget {
@@ -194,6 +240,7 @@ class DayAccordion extends StatefulWidget {
         print('Преподаватель: ${schedule[i][j].teacher}');
         print('Аудитория: ${schedule[i][j].classroom}');
         print('Адрес: ${schedule[i][j].address}');
+        print('Неделя: ${schedule[i][j].day_of_the_week}');
       }
     }
   }
@@ -203,7 +250,9 @@ class DayAccordion extends StatefulWidget {
 class _DayAccordionState extends State<DayAccordion> {
   bool _isExpanded = false;
   List<String> _disciplines = [];
+  ScheduleItem item = ScheduleItem();
   List<List<ScheduleItem>> _schedule = [];
+  List<String> _pair_type = [];
   List<String> _teachers = [];
   List<String> _classrooms = [];
   List<String> _address = [];
@@ -217,6 +266,7 @@ class _DayAccordionState extends State<DayAccordion> {
     _fetchProfessors();
     _fetchClassrooms();
     _fetchAddress();
+    _fetchCoupletype();
   }
 
   Future<void> _fetchDisciplines() async {
@@ -233,6 +283,28 @@ class _DayAccordionState extends State<DayAccordion> {
           });
         } else {
           throw Exception('Invalid data format: Missing "disciplines" key');
+        }
+      } else {
+        throw Exception('Failed to load data: ${response.statusCode}');
+      }
+    } catch (error) {
+      print('Error: $error');
+    }
+  }
+  Future<void> _fetchCoupletype() async {
+    try {
+      final response = await http.get(Uri.parse('http://localhost:3000/couple_type'));
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = jsonDecode(response.body);
+        if (data.containsKey('pair_type')) {
+          final List<dynamic> pair_type = data['pair_type'];
+          _pair_type = pair_type.map((item) => item['pair_type'] as String).toList();
+          _pair_type = _pair_type.toSet().toList();
+          setState(() {
+            _pair_type = _pair_type;
+          });
+        } else {
+          throw Exception('Invalid data format: Missing "pair_type" key');
         }
       } else {
         throw Exception('Failed to load data: ${response.statusCode}');
@@ -455,44 +527,95 @@ class _DayAccordionState extends State<DayAccordion> {
                                             ],
                                           ),
                                           const SizedBox(height: 8),
-                                          Autocomplete<String>(
-                                            optionsBuilder: (TextEditingValue textEditingValue) {
-                                              if (textEditingValue.text.isEmpty) {
-                                                return const Iterable<String>.empty();
-                                              }
-                                              return _disciplines.where((String option) {
-                                                return option.toLowerCase().contains(
-                                                  textEditingValue.text.toLowerCase(),
-                                                );
-                                              });
-                                            },
-                                            onSelected: (String value) {
-                                              setState(() {
-                                                item.discipline = value;
-                                              });
-                                            },
-                                            fieldViewBuilder: (BuildContext context, TextEditingController textEditingController, FocusNode focusNode, VoidCallback onFieldSubmitted) {
-                                              return TextFormField(
-                                                controller: textEditingController,
-                                                focusNode: focusNode,
-                                                decoration: const InputDecoration(
-                                                  labelText: 'Дисциплина',
-                                                  hintText: 'Выберите или введите дисциплину',
+                                          Row(
+                                            children: [
+                                              Expanded(
+                                                flex: 4,
+                                                child: Autocomplete<String>(
+                                                  optionsBuilder: (TextEditingValue textEditingValue) {
+                                                    if (textEditingValue.text.isEmpty) {
+                                                      return const Iterable<String>.empty();
+                                                    }
+                                                    return _disciplines.where((String option) {
+                                                      return option.toLowerCase().contains(
+                                                        textEditingValue.text.toLowerCase(),
+                                                      );
+                                                    });
+                                                  },
+                                                  onSelected: (String value) {
+                                                    setState(() {
+                                                      item.discipline = value;
+                                                    });
+                                                  },
+                                                  fieldViewBuilder: (BuildContext context, TextEditingController textEditingController, FocusNode focusNode, VoidCallback onFieldSubmitted) {
+                                                    return TextFormField(
+                                                      controller: textEditingController,
+                                                      focusNode: focusNode,
+                                                      decoration: const InputDecoration(
+                                                        labelText: 'Дисциплина',
+                                                        hintText: 'Выберите или введите дисциплину',
+                                                      ),
+                                                      onChanged: (String newValue) {
+                                                        setState(() {
+                                                          item.discipline = newValue;
+                                                        });
+                                                      },
+                                                      validator: (String? value) {
+                                                        if (value == null || value.isEmpty) {
+                                                          return 'Выберите или введите дисциплину';
+                                                        }
+                                                        return null;
+                                                      },
+                                                    );
+                                                  },
                                                 ),
-                                                onChanged: (String newValue) {
-                                                  setState(() {
-                                                    item.discipline = newValue;
-                                                  });
-                                                },
-                                                validator: (String? value) {
-                                                  if (value == null || value.isEmpty) {
-                                                    return 'Выберите или введите дисциплину';
-                                                  }
-                                                  return null;
-                                                },
-                                              );
-                                            },
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Expanded(
+                                                flex: 1,
+                                                child: Autocomplete<String>(
+                                                  optionsBuilder: (TextEditingValue textEditingValue) {
+                                                    if (textEditingValue.text.isEmpty) {
+                                                      return const Iterable<String>.empty();
+                                                    }
+                                                    return _pair_type.where((String teacher) {
+                                                      return teacher.toLowerCase().contains(
+                                                        textEditingValue.text.toLowerCase(),
+                                                      );
+                                                    });
+                                                  },
+                                                  onSelected: (String value) {
+                                                    setState(() {
+                                                      item.pair_type = value;
+                                                    });
+                                                  },
+                                                  fieldViewBuilder: (BuildContext context, TextEditingController textEditingController, FocusNode focusNode, VoidCallback onFieldSubmitted) {
+                                                    return TextFormField(
+                                                      controller: textEditingController,
+                                                      focusNode: focusNode,
+                                                      decoration: const InputDecoration(
+                                                        // contentPadding: EdgeInsets.symmetric(vertical: 8.0),
+                                                        labelText: 'Тип пары',
+                                                        hintText: 'Выберите или введите тип пары',
+                                                      ),
+                                                      onChanged: (String newValue) {
+                                                        setState(() {
+                                                          item.pair_type = newValue;
+                                                        });
+                                                      },
+                                                      validator: (String? value) {
+                                                        if (value == null || value.isEmpty) {
+                                                          return 'Выберите или введите тип пары';
+                                                        }
+                                                        return null;
+                                                      },
+                                                    );
+                                                  },
+                                                ),
+                                              ),
+                                            ],
                                           ),
+
                                           const SizedBox(height: 8),
                                           Row(
                                             crossAxisAlignment: CrossAxisAlignment.center,
@@ -595,7 +718,6 @@ class _DayAccordionState extends State<DayAccordion> {
                                                     child: Icon(Icons.save),
                                                   ),
                                                   onPressed: () {
-                                                    // _showWeekRangeDialog();
                                                     _saveData();
                                                   },
                                                 ),
@@ -604,8 +726,11 @@ class _DayAccordionState extends State<DayAccordion> {
                                                 flex: 3,
                                                 child: ElevatedButton(
                                                   onPressed: () {
-                                                    // _showWeekRangeDialog();
-                                                    _saveData();
+                                                    _showWeekRangeDialog(context, (newValue) {
+                                                      setState(() {
+                                                        item.day_of_the_week = newValue;
+                                                      });
+                                                    });
                                                   },
                                                   child: const Text('Диапазон недели'),
                                                 ),
@@ -694,35 +819,149 @@ class _DayAccordionState extends State<DayAccordion> {
       },
     );
   }
-  void _showWeekRangeDialog() {
+  void _showWeekRangeDialog(BuildContext context, Function(String) callback) {
+    List<bool> _isSelected = List.generate(18, (_) => false);
     showDialog(
       context: context,
       builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Выберите диапазон недели'),
-          content: const Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-            ],
-          ),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: const Text('Отмена'),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: const Text('Применить'),
-            ),
-          ],
+        return StatefulBuilder(
+          builder: (BuildContext context, setState) {
+            return AlertDialog(
+              title: const Text('Выберите диапазон недели'),
+              content: SizedBox(
+                width: 450,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    GridView.count(
+                      crossAxisCount: 6,
+                      shrinkWrap: true,
+                      children: List.generate(18, (index) {
+                        return Padding(
+                          padding: const EdgeInsets.all(3.0),
+                          child: ElevatedButton(
+                            onPressed: () {
+                              setState(() {
+                                _isSelected[index] = !_isSelected[index];
+                              });
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: _isSelected[index] ? Colors.blue : Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16.0),
+                              ),
+                            ),
+                            child: Text(
+                              '${index + 1}',
+                              style: const TextStyle(fontSize: 18),
+                            ),
+                          ),
+                        );
+                      }),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8.0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          ElevatedButton(
+                            onPressed: () {
+                              setState(() {
+                                for (int i = 0; i < _isSelected.length; i++) {
+                                  _isSelected[i] = (i + 1) % 2 != 0;
+                                }
+                              });
+                            },
+                            style: ElevatedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
+                            ),
+                            child: const Text('1Н'),
+                          ),
+                          ElevatedButton(
+                            onPressed: () {
+                              setState(() {
+                                for (int i = 0; i < _isSelected.length; i++) {
+                                  _isSelected[i] = (i + 1) % 2 == 0;
+                                }
+                              });
+                            },
+                            style: ElevatedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
+                            ),
+                            child: const Text('2Н'),
+                          ),
+                          ElevatedButton(
+                            onPressed: () {
+                              setState(() {
+                                for (int i = 0; i < _isSelected.length; i++) {
+                                  _isSelected[i] = true;
+                                }
+                              });
+                            },
+                            style: ElevatedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 29, vertical: 20),
+                            ),
+                            child: const Text('Все'),
+                          ),
+                          ElevatedButton(
+                            onPressed: () {
+                              setState(() {
+                                for (int i = 0; i < _isSelected.length; i++) {
+                                  _isSelected[i] = false;
+                                }
+                              });
+                            },
+                            style: ElevatedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+                            ),
+                            child: const Text('Сброс'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: <Widget>[
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                  },
+                  child: const Text('Отмена'),
+                ),
+                TextButton(
+                  onPressed: () {
+                    _applySelection(_isSelected, callback);
+                    Navigator.of(context).pop();
+                  },
+                  child: const Text('Применить'),
+                ),
+              ],
+            );
+          },
         );
       },
     );
   }
+
+  void _applySelection(List<bool> isSelected, Function(String) callback) {
+    String selectedNumbers = '';
+    for (int i = 0; i < isSelected.length; i++) {
+      if (isSelected[i]) {
+        selectedNumbers += '${i + 1} ';
+      }
+    }
+    callback(selectedNumbers);
+  }
+
+  void callback(String newValue) {
+    setState(() {
+      item.day_of_the_week = newValue;
+      print(newValue);
+    });
+  }
+
   void _removeLastScheduleRow() {
     setState(() {
       _schedule.removeLast();
