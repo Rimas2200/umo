@@ -15,6 +15,44 @@ const pool = mysql.createPool({
 app.use(express.json());
 app.use(cors());
 
+app.post('/timetable', async (req, res) => {
+  const { discipline, classroom, group_name, pair_name, teacher_name, day_of_the_week, week, subgroup} = req.body;
+  console.log(req.body)
+  if (!(discipline && classroom && group_name && pair_name && teacher_name && day_of_the_week && week && subgroup)) {
+    return res.status(409).json({ error: 'Данные не соответствуют запросу' });
+  }
+  try {
+    const newtimetable = {
+      discipline,
+      classroom,
+      group_name,
+      pair_name,
+      teacher_name,
+      day_of_the_week,
+      week,
+      subgroup
+    };
+    await savetimetable(newtimetable);
+    res.status(200).json(newtimetable);
+  } catch (error) {
+    console.error('Ошибка сохранения расписания:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+function savetimetable(newtimetable) {
+  return new Promise((resolve, reject) => {
+    const query = 'INSERT INTO schedule (discipline, classroom, group_name, pair_name, teacher_name, day_of_the_week, week, subgroup) VALUES (?, ?, ?, ?, ?, ?, ?, ?)';
+    const values = [newtimetable.discipline, newtimetable.classroom, newtimetable.group_name, newtimetable.pair_name, newtimetable.teacher_name, newtimetable.day_of_the_week, newtimetable.week, newtimetable.subgroup];
+    pool.query(query, values, (error, results) => {
+      if (error) {
+        reject(error);
+      } else {
+        resolve(results);
+      }
+    });
+  });
+}
+
 app.get('/discipline', (req, res) => {
   pool.query('SELECT * FROM discipline', (error, results) => {
     console.log('запрос есть');
@@ -38,7 +76,7 @@ app.get('/couple_type', (req, res) => {
       res.status(500).json({ error: 'Ошибка сервера' });
     } else {
       if (results && results.length > 0) {
-        res.json({ pairtype: results });
+        res.json({ pair_type: results });
       } else {
         res.status(404).json({ error: 'Данные не найдены' });
       }
