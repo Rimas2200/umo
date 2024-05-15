@@ -111,6 +111,7 @@ class _GroupNameState extends State<GroupName> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        title: const Text('Группы'),
       ),
       body: Column(
         children: [

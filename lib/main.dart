@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+
 import 'menu/HomeScreen.dart';
 import 'menu/Departament.dart';
 import 'menu/Direction.dart';
@@ -24,7 +27,100 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.deepPurple,
       ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      home: LoginPage(),
+    );
+  }
+}
+
+class LoginPage extends StatefulWidget {
+  @override
+  _LoginPageState createState() => _LoginPageState();
+}
+
+class _LoginPageState extends State<LoginPage> {
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+  bool _isLoading = false;
+
+  Future<void> _login() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    final String email = _emailController.text;
+    final String password = _passwordController.text;
+
+    final Map<String, String> requestBody = {
+      'email': email,
+      'password': password,
+    };
+
+    final Uri url = Uri.parse('http://localhost:3000/authUmo');
+
+    try {
+      final http.Response response = await http.post(
+        url,
+        body: json.encode(requestBody),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      final Map<String, dynamic> responseData = json.decode(response.body);
+
+      if (response.statusCode == 200) {
+        final String token = responseData['token'];
+        // Сохраните токен в хранилище, например, Shared Preferences
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => MyHomePage(title: 'Flutter Demo Home Page')),
+        );
+      } else {
+        final String errorMessage = responseData['error'];
+        // Отобразите сообщение об ошибке
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(errorMessage)),
+        );
+      }
+    } catch (error) {
+      // Обработайте ошибку, если запрос не удалось выполнить
+      print('Ошибка: $error');
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Авторизация'),
+      ),
+      body: _isLoading
+          ? Center(child: CircularProgressIndicator())
+          : Padding(
+        padding: EdgeInsets.all(20.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            TextField(
+              controller: _emailController,
+              decoration: InputDecoration(labelText: 'Email'),
+            ),
+            SizedBox(height: 20.0),
+            TextField(
+              controller: _passwordController,
+              decoration: InputDecoration(labelText: 'Пароль'),
+              obscureText: true,
+            ),
+            SizedBox(height: 20.0),
+            ElevatedButton(
+              onPressed: _login,
+              child: Text('Войти'),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -199,7 +295,3 @@ class MenuItem extends StatelessWidget {
     );
   }
 }
-
-
-
-

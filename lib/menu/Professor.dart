@@ -21,7 +21,7 @@ class _ProfessorState extends State<Professor> {
     final String firstName = _firstNameController.text;
     final String middleName = _middleNameController.text;
     final String position = _positionController.text;
-    final String departement = _departmentController.text;
+    final String department = _departmentController.text;
 
     final response = await http.post(
       Uri.parse('http://localhost:3000/professors/insert'),
@@ -33,7 +33,7 @@ class _ProfessorState extends State<Professor> {
         'first_name': firstName,
         'middle_name': middleName,
         'position': position,
-        'departement': departement,
+        'departement': department,
       }),
     );
 
@@ -68,6 +68,7 @@ class _ProfessorState extends State<Professor> {
       throw Exception('Failed to load professors');
     }
   }
+
   void filterProfessors(String query) {
     setState(() {
       filteredProfessors = professors.where((professor) =>
@@ -79,7 +80,8 @@ class _ProfessorState extends State<Professor> {
       ).toList();
     });
   }
-  void updateProfessor(int id, String lastName, String firstName, String middleName, String position, String departement) async {
+
+  void updateProfessor(int id, String lastName, String firstName, String middleName, String position, String department) async {
     final response = await http.put(
       Uri.parse('http://localhost:3000/professors/update/$id'),
       headers: <String, String>{
@@ -90,7 +92,7 @@ class _ProfessorState extends State<Professor> {
         'first_name': firstName,
         'middle_name': middleName,
         'position': position,
-        'departement': departement,
+        'departement': department,
       }),
     );
     if (response.statusCode == 200) {
@@ -101,7 +103,7 @@ class _ProfessorState extends State<Professor> {
           filteredProfessors[index]['first_name'] = firstName;
           filteredProfessors[index]['middle_name'] = middleName;
           filteredProfessors[index]['position'] = position;
-          filteredProfessors[index]['departement'] = departement;
+          filteredProfessors[index]['departement'] = department;
         });
       }
     } else {
@@ -131,7 +133,7 @@ class _ProfessorState extends State<Professor> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Преподаватели'),
+        title: const Text('Преподаватели'),
       ),
       body: Column(
         children: [
@@ -232,14 +234,10 @@ class _ProfessorState extends State<Professor> {
               itemCount: filteredProfessors.length,
               itemBuilder: (context, index) {
                 return ListTile(
-                  title: Text('${filteredProfessors[index]['last_name']} ${filteredProfessors[index]['first_name']} ${filteredProfessors[index]['middle_name']}'.trim()),
-                  subtitle: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(filteredProfessors[index]['position']),
-                      Text(filteredProfessors[index]['departement'] ?? ''),
-                    ],
+                  title: Text(
+                      '${filteredProfessors[index]['last_name']} ${filteredProfessors[index]['first_name']} ${filteredProfessors[index]['middle_name']} - ${filteredProfessors[index]['position']}'
                   ),
+                  subtitle: Text(filteredProfessors[index]['departement'] ?? ''),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [

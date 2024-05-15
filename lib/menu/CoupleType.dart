@@ -105,7 +105,9 @@ class _CoupleTypeState extends State<CoupleType> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(),
+      appBar: AppBar(
+        title: const Text('Тип пар'),
+      ),
       body: Column(
         children: [
           Padding(

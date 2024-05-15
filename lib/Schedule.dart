@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:logger/logger.dart';
+import 'package:umo/lib/TimetablePage.dart';
+import 'package:umo/lib/TimetableGroup.dart';
 
 class Schedule extends StatefulWidget {
   final String? selectedFaculty;
@@ -13,11 +15,15 @@ class Schedule extends StatefulWidget {
 }
 
 class _ScheduleState extends State<Schedule> {
+  final TextEditingController _groupNameController = TextEditingController();
+  final TextEditingController _directionAbbreviationController = TextEditingController();
   String _selectedGroup = 'Выберете группу!';
   late List<bool> _isExpanded;
   List<String> _directions = [];
   var logger = Logger();
   List<String> _groups = [];
+  List<Map<String, dynamic>> groupNames = [];
+  List<Map<String, dynamic>> filteredGroupNames = [];
   @override
   void initState() {
     super.initState();
@@ -81,6 +87,28 @@ class _ScheduleState extends State<Schedule> {
     }
   }
 
+  Future<void> _addGroupName() async {
+    final String groupName = _groupNameController.text;
+    final String directionAbbreviation = _directionAbbreviationController.text;
+
+    final response = await http.post(
+      Uri.parse('http://localhost:3000/group_names/insert'),
+      headers: <String, String>{
+        'Content-Type': 'application/json; charset=UTF-8',
+      },
+      body: jsonEncode(<String, dynamic>{
+        'name': groupName,
+        'direction_abbreviation': directionAbbreviation,
+      }),
+    );
+
+    if (response.statusCode == 201) {
+      Navigator.of(context).pop(true);
+    } else {
+      throw Exception('Failed to add group');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
 
@@ -110,10 +138,29 @@ class _ScheduleState extends State<Schedule> {
                 ),
                 IconButton(
                   icon: const Tooltip(
-                    message: 'Сохранить',
-                    child: Icon(Icons.save),
+                    message: 'Просмотр расписания',
+                    child: Icon(Icons.visibility),
                   ),
                   onPressed: () {
+                    Navigator.of(context).push(MaterialPageRoute(
+                      builder: (context) => TimetableGroup(selectedGroup: _selectedGroup),
+                    ));
+                  },
+
+                ),
+                IconButton(
+                  icon: const Tooltip(
+                    message: 'Шахматка',
+                    child: Icon(Icons.apps_sharp),
+                  ),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => TimetablePage(),
+                      ),
+                    );
+
                   },
                 ),
                 IconButton(
@@ -124,8 +171,8 @@ class _ScheduleState extends State<Schedule> {
                   onPressed: () {},
                 ),
                 PopupMenuButton<String>(
-                  icon: const Icon(Icons.stream),
-                  tooltip: 'Выбор потока',
+                  icon: const Icon(Icons.menu_book),
+                  tooltip: 'Выбор направления',
                   itemBuilder: (BuildContext context) {
                     return _directions.map((direction) {
                       return PopupMenuItem<String>(
@@ -165,14 +212,49 @@ class _ScheduleState extends State<Schedule> {
                     message: 'Добавить группу',
                     child: Icon(Icons.add),
                   ),
-                  onPressed: () {},
-                ),
-                IconButton(
-                  icon: const Tooltip(
-                    message: 'Удалить группу',
-                    child: Icon(Icons.delete),
-                  ),
-                  onPressed: () {},
+                  onPressed: () {
+                    showDialog(
+                      context: context,
+                      builder: (BuildContext context) {
+                        return AlertDialog(
+                          title: const Text('Добавить группу'),
+                          content: SingleChildScrollView(
+                            child: Column(
+                              children: [
+                                TextField(
+                                  controller: _groupNameController,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Название группы',
+                                  ),
+                                ),
+                                TextField(
+                                  controller: _directionAbbreviationController,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Аббревиатура направления',
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () {
+                                Navigator.of(context).pop(false);
+                              },
+                              child: const Text('Отмена'),
+                            ),
+                            ElevatedButton(
+                              onPressed: () {
+                                _addGroupName();
+                                Navigator.of(context).pop(true);
+                              },
+                              child: const Text('Добавить'),
+                            ),
+                          ],
+                        );
+                      },
+                    );
+                  },
                 ),
               ],
             ),
@@ -194,6 +276,7 @@ class _ScheduleState extends State<Schedule> {
     );
   }
 }
+
 class ScheduleItem {
   String? discipline;
   String? teacher;
@@ -227,12 +310,16 @@ class DayAccordion extends StatefulWidget {
   void _saveData(List<List<ScheduleItem>> schedule, context) async {
     for (int i = 0; i < schedule.length; i++) {
       for (int j = 0; j < schedule[i].length; j++) {
-        if(schedule[i][j].discipline != null && schedule[i][j].pair_type != null){
-          logger.i('discipline: ${schedule[i][j].discipline} ${schedule[i][j].pair_type}');
+        print(j);
+        if (schedule[i][j].discipline != null &&
+            schedule[i][j].pair_type != null) {
+          logger.i('discipline: ${schedule[i][j].discipline} ${schedule[i][j]
+              .pair_type}');
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Не заполнено поле с дисциплиной или не выбран тип пары'),
+              content: Text(
+                  'Не заполнено поле с дисциплиной или не выбран тип пары'),
               duration: Duration(seconds: 3),
             ),
           );
@@ -241,7 +328,7 @@ class DayAccordion extends StatefulWidget {
 
         if (schedule[i][j].classroom != null) {
           logger.i('classroom: ${schedule[i][j].classroom}');
-        } else if (schedule[i][j].address != null){
+        } else if (schedule[i][j].address != null) {
           logger.i('classroom: ${schedule[i][j].address}');
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -253,7 +340,7 @@ class DayAccordion extends StatefulWidget {
           continue;
         }
 
-        if(schedule[i][j].selectedGroup != null){
+        if (schedule[i][j].selectedGroup != null) {
           logger.i('group_name: ${schedule[i][j].selectedGroup}');
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -269,8 +356,7 @@ class DayAccordion extends StatefulWidget {
           logger.i('pair_name: ${schedule[i][j].pair_name}');
         } else if (schedule[i][j].pair_time != null) {
           logger.i('pair_name: ${schedule[i][j].pair_time}');
-        } else if (schedule[i][j].pair_time == null){
-        }else{
+        } else {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Не выбран номер пары или время'),
@@ -280,7 +366,7 @@ class DayAccordion extends StatefulWidget {
           continue;
         }
 
-        if(schedule[i][j].teacher != null) {
+        if (schedule[i][j].teacher != null) {
           logger.i('teacher_name: ${schedule[i][j].teacher}');
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -291,6 +377,7 @@ class DayAccordion extends StatefulWidget {
           );
           continue;
         }
+
         logger.i('day_of_the_week: $day');
         if (schedule[i][j].day_of_the_week != null) {
           logger.i('week: ${schedule[i][j].day_of_the_week}');
@@ -304,16 +391,17 @@ class DayAccordion extends StatefulWidget {
           continue;
         }
         String subgroup;
-        if (j-1>=0) {
+        if (schedule[i].length > 1) {
           subgroup = '${j + 1}';
-          logger.i(subgroup);
         } else {
-          subgroup = 'нет разделения';
-          logger.i('нет разделения');
+          subgroup = 'не определена';
         }
+        logger.i('subgroup: $subgroup');
+
         final url = Uri.parse('http://localhost:3000/timetable');
         final body = jsonEncode({
-          'discipline': '${schedule[i][j].discipline} ${schedule[i][j].pair_type}',
+          'discipline': '${schedule[i][j].discipline} ${schedule[i][j]
+              .pair_type}',
           'classroom': schedule[i][j].classroom ?? schedule[i][j].address,
           'group_name': schedule[i][j].selectedGroup,
           'pair_name': schedule[i][j].pair_name ?? schedule[i][j].pair_time,
@@ -322,6 +410,7 @@ class DayAccordion extends StatefulWidget {
           'week': schedule[i][j].day_of_the_week,
           'subgroup': subgroup,
         });
+
         final response = await http.post(
           url,
           headers: <String, String>{
@@ -335,6 +424,14 @@ class DayAccordion extends StatefulWidget {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Данные успешно отправлены'),
+              duration: Duration(seconds: 3),
+            ),
+          );
+        } else if (response.statusCode == 409) {
+          logger.e('Запись уже существует: ${response.statusCode}');
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Такая запись уже существует'),
               duration: Duration(seconds: 3),
             ),
           );
@@ -986,10 +1083,12 @@ class _DayAccordionState extends State<DayAccordion> {
                               });
                             },
                             style: ElevatedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
+                              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20), backgroundColor: Colors.blue,
+                              // elevation: 5,
                             ),
-                            child: const Text('1Н'),
+                            child: const Text('1Н', style: TextStyle(color: Colors.white, fontSize: 18)),
                           ),
+
                           ElevatedButton(
                             onPressed: () {
                               setState(() {
@@ -999,9 +1098,10 @@ class _DayAccordionState extends State<DayAccordion> {
                               });
                             },
                             style: ElevatedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
+                              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20), backgroundColor: Colors.blue,
+                              // elevation: 5,
                             ),
-                            child: const Text('2Н'),
+                            child: const Text('2Н', style: TextStyle(color: Colors.white, fontSize: 18)),
                           ),
                           ElevatedButton(
                             onPressed: () {
@@ -1012,9 +1112,10 @@ class _DayAccordionState extends State<DayAccordion> {
                               });
                             },
                             style: ElevatedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(horizontal: 29, vertical: 20),
+                              padding: const EdgeInsets.symmetric(horizontal: 29, vertical: 20), backgroundColor: Colors.blue,
+                              // elevation: 5,
                             ),
-                            child: const Text('Все'),
+                            child: const Text('Все', style: TextStyle(color: Colors.white, fontSize: 18)),
                           ),
                           ElevatedButton(
                             onPressed: () {
@@ -1025,9 +1126,10 @@ class _DayAccordionState extends State<DayAccordion> {
                               });
                             },
                             style: ElevatedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20), backgroundColor: Colors.blue,
+                              // elevation: 5,
                             ),
-                            child: const Text('Сброс'),
+                            child: const Text('Сброс', style: TextStyle(color: Colors.white, fontSize: 18)),
                           ),
                         ],
                       ),

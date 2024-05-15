@@ -3,8 +3,14 @@ const mysql = require('mysql2');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
-
+const path = require('path');
 const app = express();
+app.use(express.static(path.join(__dirname, 'build', 'web')));
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'build', 'web', 'index.html'));
+});
+
+
 const pool = mysql.createPool({
   host: '127.0.0.1',
   user: 'root',
@@ -16,13 +22,30 @@ app.use(express.json());
 app.use(cors());
 
 app.post('/timetable', async (req, res) => {
-  const { discipline, classroom, group_name, pair_name, teacher_name, day_of_the_week, week, subgroup} = req.body;
-  console.log(req.body)
+  const { discipline, classroom, group_name, pair_name, teacher_name, day_of_the_week, week, subgroup } = req.body;
+  console.log(req.body);
+
   if (!(discipline && classroom && group_name && pair_name && teacher_name && day_of_the_week && week && subgroup)) {
     return res.status(409).json({ error: 'Данные не соответствуют запросу' });
   }
+
   try {
-    const newtimetable = {
+    const existingTimetable = await checkExistingTimetable({
+      discipline,
+      classroom,
+      group_name,
+      pair_name,
+      teacher_name,
+      day_of_the_week,
+      week,
+      subgroup
+    });
+
+    if (existingTimetable.length > 0) {
+      return res.status(409).json({ error: 'Такая запись уже существует' });
+    }
+
+    const newTimetable = {
       discipline,
       classroom,
       group_name,
@@ -32,17 +55,41 @@ app.post('/timetable', async (req, res) => {
       week,
       subgroup
     };
-    await savetimetable(newtimetable);
-    res.status(200).json(newtimetable);
+
+    await saveTimetable(newTimetable);
+    res.status(200).json(newTimetable);
   } catch (error) {
     console.error('Ошибка сохранения расписания:', error);
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 });
-function savetimetable(newtimetable) {
+
+function checkExistingTimetable(timetable) {
+  return new Promise((resolve, reject) => {
+    const query = `SELECT * FROM schedule WHERE
+                   discipline = ? AND
+                   classroom = ? AND
+                   group_name = ? AND
+                   pair_name = ? AND
+                   teacher_name = ? AND
+                   day_of_the_week = ? AND
+                   week = ? AND
+                   subgroup = ?`;
+    const values = [timetable.discipline, timetable.classroom, timetable.group_name, timetable.pair_name, timetable.teacher_name, timetable.day_of_the_week, timetable.week, timetable.subgroup];
+    pool.query(query, values, (error, results) => {
+      if (error) {
+        reject(error);
+      } else {
+        resolve(results);
+      }
+    });
+  });
+}
+
+function saveTimetable(newTimetable) {
   return new Promise((resolve, reject) => {
     const query = 'INSERT INTO schedule (discipline, classroom, group_name, pair_name, teacher_name, day_of_the_week, week, subgroup) VALUES (?, ?, ?, ?, ?, ?, ?, ?)';
-    const values = [newtimetable.discipline, newtimetable.classroom, newtimetable.group_name, newtimetable.pair_name, newtimetable.teacher_name, newtimetable.day_of_the_week, newtimetable.week, newtimetable.subgroup];
+    const values = [newTimetable.discipline, newTimetable.classroom, newTimetable.group_name, newTimetable.pair_name, newTimetable.teacher_name, newTimetable.day_of_the_week, newTimetable.week, newTimetable.subgroup];
     pool.query(query, values, (error, results) => {
       if (error) {
         reject(error);
@@ -54,7 +101,6 @@ function savetimetable(newtimetable) {
 }
 app.get('/discipline', (req, res) => {
   pool.query('SELECT * FROM discipline', (error, results) => {
-    console.log('запрос есть');
     if (error) {
       console.error('Ошибка при выполнении запроса:', error);
       res.status(500).json({ error: 'Ошибка сервера' });
@@ -69,7 +115,6 @@ app.get('/discipline', (req, res) => {
 });
 app.get('/couple_type', (req, res) => {
   pool.query('SELECT * FROM couple_type', (error, results) => {
-    console.log('запрос есть');
     if (error) {
       console.error('Ошибка при выполнении запроса:', error);
       res.status(500).json({ error: 'Ошибка сервера' });
@@ -84,7 +129,6 @@ app.get('/couple_type', (req, res) => {
 });
 app.get('/professor', (req, res) => {
   pool.query('SELECT last_name, CONCAT(LEFT(first_name, 1), ". ", LEFT(middle_name, 1), ".") AS initials FROM professor', (error, results) => {
-    console.log('запрос есть');
     if (error) {
       console.error('Ошибка при выполнении запроса:', error);
       res.status(500).json({ error: 'Ошибка сервера' });
@@ -99,7 +143,6 @@ app.get('/professor', (req, res) => {
 });
 app.get('/classroom', (req, res) => {
   pool.query('SELECT CONCAT(room_number, " Корпус: ", building) AS initials FROM classroom', (error, results) => {
-    console.log('запрос есть');
     if (error) {
       console.error('Ошибка при выполнении запроса:', error);
       res.status(500).json({ error: 'Ошибка сервера' });
@@ -114,7 +157,6 @@ app.get('/classroom', (req, res) => {
 });
 app.get('/address', (req, res) => {
   pool.query('SELECT * FROM address', (error, results) => {
-    console.log('запрос есть');
     if (error) {
       console.error('Ошибка при выполнении запроса:', error);
       res.status(500).json({ error: 'Ошибка сервера' });
@@ -647,6 +689,23 @@ app.get('/schedule/teacher', (req, res) => {
     });
   });
 });
+app.get('/schedule/group', (req, res) => {
+  const groupName = req.query.group_name;
+  if (!groupName) {
+    return res.status(400).json({ error: 'Where is the group name?' });
+  }
+  pool.query('SELECT * FROM schedule WHERE group_name = ?', groupName, (error, results) => {
+    if (error) {
+      console.error('Error executing schedule query:', error);
+      return res.status(500).json({ error: 'Server error' });
+    }
+    if (results && results.length > 0) {
+      res.json(results);
+    } else {
+      res.json([]);
+    }
+  });
+});
 app.get('/schedule', (req, res) => {
   const userEmail = req.query.user_email;
   const weekday = req.query.weekday;
@@ -863,6 +922,52 @@ app.post('/auth', (req, res) => {
       res.status(500).json({ error: 'Ошибка сервера' });
     });
 });
+app.post('/authUmo', (req, res) => {
+  const { email, password } = req.body;
+  if (!email || !password) {
+    return res.status(416).json({ error: 'Данные не соответствуют запросу' });
+  }
+  const secretKey = crypto.randomBytes(32).toString('hex');
+  const token = jwt.sign({ email }, secretKey);
+  authenticateUserUmo(email, password, token)
+    .then((authenticatedUmo) => {
+      if (authenticatedUmo) {
+        res.status(200).json({ token });
+      } else {
+        res.status(401).json({ error: 'Не авторизован' });
+      }
+    })
+    .catch((error) => {
+      console.error('Ошибка проверки авторизации:', error);
+      res.status(500).json({ error: 'Ошибка сервера' });
+    });
+});
+function authenticateUserUmo(email, password, token) {
+  return new Promise((resolve, reject) => {
+    const query = 'SELECT * FROM usersUMO WHERE email = ? AND password = ?';
+    const values = [email, password];
+    pool.query(query, values, (error, results) => {
+      if (error) {
+        reject(error);
+      } else {
+        const authenticatedUmo = results.length > 0;
+        if (authenticatedUmo) {
+          const updateQuery = 'UPDATE usersUMO SET token = ? WHERE email = ?';
+          const updateValues = [token, email];
+          pool.query(updateQuery, updateValues, (error, results) => {
+            if (error) {
+              reject(error);
+            } else {
+              resolve(authenticatedUmo);
+            }
+          });
+        } else {
+          resolve(authenticatedUmo);
+        }
+      }
+    });
+  });
+}
 app.post('/users/profile_one', (req, res) => {
   const { user_email, department, professor } = req.body;
   if (!user_email || !department || !professor) {

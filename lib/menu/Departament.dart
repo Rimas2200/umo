@@ -111,6 +111,7 @@ class _DepartamentState extends State<Departament> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        title: const Text('Кафедры'),
       ),
       body: Column(
         children: [

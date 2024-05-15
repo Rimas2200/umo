@@ -122,6 +122,7 @@ class _DirectionState extends State<Direction> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        title: const Text('Направления'),
       ),
       body: Column(
         children: [

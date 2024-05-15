@@ -106,6 +106,7 @@ class _DisciplineState extends State<Discipline> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        title: const Text('Дисциплины'),
       ),
       body: Column(
         children: [

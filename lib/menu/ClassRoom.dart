@@ -113,6 +113,7 @@ class _ClassRoomState extends State<ClassRoom> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        title: const Text('Аудитории'),
       ),
       body: Column(
         children: [
@@ -196,7 +197,7 @@ class _ClassRoomState extends State<ClassRoom> {
               itemBuilder: (context, index) {
                 return ListTile(
                   title: Text(filteredClassrooms[index]['room_number']),
-                  subtitle: Text(filteredClassrooms[index]['building']),
+                  subtitle: Text('Корпус: ${filteredClassrooms[index]['building']}'),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [

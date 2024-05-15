@@ -113,6 +113,7 @@ class _AddressState extends State<Address> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        title: const Text('Адреса'),
       ),
       body: Column(
         children: [
