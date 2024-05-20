@@ -42,6 +42,26 @@ class _LoginPageState extends State<LoginPage> {
   final TextEditingController _passwordController = TextEditingController();
   bool _isLoading = false;
 
+  String baseUrl = '';
+  int port = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    loadConfig();
+  }
+
+  Future<void> loadConfig() async {
+    try {
+      String content = await DefaultAssetBundle.of(context).loadString('assets/config.json');
+      Map<String, dynamic> config = jsonDecode(content);
+      baseUrl = config['baseUrl'];
+      port = config['port'];
+    } catch (e) {
+      print('Ошибка при загрузке конфигурационного файла: $e');
+    }
+  }
+
   Future<void> _login() async {
     setState(() {
       _isLoading = true;
@@ -55,7 +75,7 @@ class _LoginPageState extends State<LoginPage> {
       'password': password,
     };
 
-    final Uri url = Uri.parse('http://localhost:3000/authUmo');
+    final Uri url = Uri.parse('$baseUrl:$port/authUmo');
 
     try {
       final http.Response response = await http.post(
@@ -68,20 +88,17 @@ class _LoginPageState extends State<LoginPage> {
 
       if (response.statusCode == 200) {
         final String token = responseData['token'];
-        // Сохраните токен в хранилище, например, Shared Preferences
         Navigator.push(
           context,
           MaterialPageRoute(builder: (context) => MyHomePage(title: 'Flutter Demo Home Page')),
         );
       } else {
         final String errorMessage = responseData['error'];
-        // Отобразите сообщение об ошибке
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(errorMessage)),
         );
       }
     } catch (error) {
-      // Обработайте ошибку, если запрос не удалось выполнить
       print('Ошибка: $error');
     } finally {
       setState(() {

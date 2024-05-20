@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
+import 'dart:async';
 import 'package:http/http.dart' as http;
+import 'package:flutter/services.dart' show rootBundle;
 
 class ClassRoom extends StatefulWidget {
   @override
@@ -12,13 +14,25 @@ class _ClassRoomState extends State<ClassRoom> {
   final TextEditingController _buildingController = TextEditingController();
   List<Map<String, dynamic>> classrooms = [];
   List<Map<String, dynamic>> filteredClassrooms = [];
+  late String baseUrl;
+  late int port;
+
+  Future<void> loadConfig() async {
+    final configString = await rootBundle.loadString('assets/config.json');
+    final config = json.decode(configString);
+    setState(() {
+      baseUrl = config['baseUrl'];
+      port = config['port'];
+    });
+    fetchClassrooms();
+  }
 
   Future<void> _addClassroom() async {
     final String roomNumber = _roomNumberController.text;
     final String building = _buildingController.text;
 
     final response = await http.post(
-      Uri.parse('http://localhost:3000/classrooms/insert'),
+      Uri.parse('$baseUrl:$port/classrooms/insert'),
       headers: <String, String>{
         'Content-Type': 'application/json; charset=UTF-8',
       },
@@ -37,7 +51,7 @@ class _ClassRoomState extends State<ClassRoom> {
   }
 
   Future<void> fetchClassrooms() async {
-    final response = await http.get(Uri.parse('http://localhost:3000/classrooms'));
+    final response = await http.get(Uri.parse('$baseUrl:$port/classrooms'));
     if (response.statusCode == 200) {
       final List<dynamic> data = json.decode(response.body);
       List<Map<String, dynamic>> classroomsArray = [];
@@ -68,7 +82,7 @@ class _ClassRoomState extends State<ClassRoom> {
 
   void updateClassroom(int id, String roomNumber, String building) async {
     final response = await http.put(
-      Uri.parse('http://localhost:3000/classrooms/update/$id'),
+      Uri.parse('$baseUrl:$port/classrooms/update/$id'),
       headers: <String, String>{
         'Content-Type': 'application/json; charset=UTF-8',
       },
@@ -92,7 +106,7 @@ class _ClassRoomState extends State<ClassRoom> {
   }
 
   Future<void> deleteClassroom(int id) async {
-    final response = await http.delete(Uri.parse('http://localhost:3000/classrooms/$id'));
+    final response = await http.delete(Uri.parse('$baseUrl:$port/classrooms/$id'));
     if (response.statusCode == 200) {
       setState(() {
         classrooms.removeWhere((classroom) => classroom['id'] == id);
@@ -105,8 +119,8 @@ class _ClassRoomState extends State<ClassRoom> {
 
   @override
   void initState() {
-    fetchClassrooms();
     super.initState();
+    loadConfig();
   }
 
   @override

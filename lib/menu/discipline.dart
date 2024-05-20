@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:flutter/services.dart' show rootBundle;
 
 class Discipline extends StatefulWidget {
   @override
@@ -11,12 +12,24 @@ class _DisciplineState extends State<Discipline> {
   final TextEditingController _disciplineNameController = TextEditingController();
   List<Map<String, dynamic>> disciplines = [];
   List<Map<String, dynamic>> filteredDisciplines = [];
+  late String baseUrl;
+  late int port;
+
+  Future<void> loadConfig() async {
+    final configString = await rootBundle.loadString('assets/config.json');
+    final config = json.decode(configString);
+    setState(() {
+      baseUrl = config['baseUrl'];
+      port = config['port'];
+    });
+    fetchDisciplines();
+  }
 
   Future<void> _addDiscipline() async {
     final String disciplineName = _disciplineNameController.text;
 
     final response = await http.post(
-      Uri.parse('http://localhost:3000/disciplines/insert'),
+      Uri.parse('$baseUrl:$port/disciplines/insert'),
       headers: <String, String>{
         'Content-Type': 'application/json; charset=UTF-8',
       },
@@ -34,7 +47,7 @@ class _DisciplineState extends State<Discipline> {
   }
 
   Future<void> fetchDisciplines() async {
-    final response = await http.get(Uri.parse('http://localhost:3000/disciplines'));
+    final response = await http.get(Uri.parse('$baseUrl:$port/disciplines'));
     if (response.statusCode == 200) {
       final List<dynamic> data = json.decode(response.body);
       List<Map<String, dynamic>> disciplinesArray = [];
@@ -56,14 +69,14 @@ class _DisciplineState extends State<Discipline> {
   void filterDisciplines(String query) {
     setState(() {
       filteredDisciplines = disciplines.where((discipline) =>
-          discipline['discipline_name'].toLowerCase().contains(query.toLowerCase())
+      discipline['discipline_name'].toLowerCase().contains(query.toLowerCase())
       ).toList();
     });
   }
 
   Future<void> updateDiscipline(int id, String disciplineName) async {
     final response = await http.put(
-      Uri.parse('http://localhost:3000/disciplines/update/$id'),
+      Uri.parse('$baseUrl:$port/disciplines/update/$id'),
       headers: <String, String>{
         'Content-Type': 'application/json; charset=UTF-8',
       },
@@ -85,7 +98,7 @@ class _DisciplineState extends State<Discipline> {
   }
 
   Future<void> deleteDiscipline(int id) async {
-    final response = await http.delete(Uri.parse('http://localhost:3000/disciplines/$id'));
+    final response = await http.delete(Uri.parse('$baseUrl:$port/disciplines/$id'));
     if (response.statusCode == 200) {
       setState(() {
         disciplines.removeWhere((discipline) => discipline['id'] == id);
@@ -98,8 +111,8 @@ class _DisciplineState extends State<Discipline> {
 
   @override
   void initState() {
-    fetchDisciplines();
     super.initState();
+    loadConfig();
   }
 
   @override

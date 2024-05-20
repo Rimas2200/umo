@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
+import 'dart:async';
 import 'package:http/http.dart' as http;
+import 'package:flutter/services.dart' show rootBundle;
 
 class CoupleType extends StatefulWidget {
   @override
@@ -11,12 +13,24 @@ class _CoupleTypeState extends State<CoupleType> {
   final TextEditingController _pairTypeController = TextEditingController();
   List<Map<String, dynamic>> coupleTypes = [];
   List<Map<String, dynamic>> filteredCoupleTypes = [];
+  late String baseUrl;
+  late int port;
+
+  Future<void> loadConfig() async {
+    final configString = await rootBundle.loadString('assets/config.json');
+    final config = json.decode(configString);
+    setState(() {
+      baseUrl = config['baseUrl'];
+      port = config['port'];
+    });
+    fetchCoupleTypes();
+  }
 
   Future<void> _addCoupleType() async {
     final String pairType = _pairTypeController.text;
 
     final response = await http.post(
-      Uri.parse('http://localhost:3000/couple_types/insert'),
+      Uri.parse('$baseUrl:$port/couple_types/insert'),
       headers: <String, String>{
         'Content-Type': 'application/json; charset=UTF-8',
       },
@@ -34,7 +48,7 @@ class _CoupleTypeState extends State<CoupleType> {
   }
 
   Future<void> fetchCoupleTypes() async {
-    final response = await http.get(Uri.parse('http://localhost:3000/couple_types'));
+    final response = await http.get(Uri.parse('$baseUrl:$port/couple_types'));
     if (response.statusCode == 200) {
       final List<dynamic> data = json.decode(response.body);
       List<Map<String, dynamic>> coupleTypesArray = [];
@@ -63,7 +77,7 @@ class _CoupleTypeState extends State<CoupleType> {
 
   void updateCoupleType(int id, String pairType) async {
     final response = await http.put(
-      Uri.parse('http://localhost:3000/couple_types/update/$id'),
+      Uri.parse('$baseUrl:$port/couple_types/update/$id'),
       headers: <String, String>{
         'Content-Type': 'application/json; charset=UTF-8',
       },
@@ -85,7 +99,7 @@ class _CoupleTypeState extends State<CoupleType> {
   }
 
   Future<void> deleteCoupleType(int id) async {
-    final response = await http.delete(Uri.parse('http://localhost:3000/couple_types/$id'));
+    final response = await http.delete(Uri.parse('$baseUrl:$port/couple_types/$id'));
     if (response.statusCode == 200) {
       setState(() {
         coupleTypes.removeWhere((coupleType) => coupleType['id'] == id);
@@ -98,8 +112,8 @@ class _CoupleTypeState extends State<CoupleType> {
 
   @override
   void initState() {
-    fetchCoupleTypes();
     super.initState();
+    loadConfig();
   }
 
   @override

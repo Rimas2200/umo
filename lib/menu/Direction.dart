@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:flutter/services.dart' show rootBundle;
 
 class Direction extends StatefulWidget {
   @override
@@ -8,21 +9,31 @@ class Direction extends StatefulWidget {
 }
 
 class _DirectionState extends State<Direction> {
-  final TextEditingController _directionAbbreviationController =
-  TextEditingController();
+  final TextEditingController _directionAbbreviationController = TextEditingController();
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _facultyController = TextEditingController();
   List<Map<String, dynamic>> directions = [];
   List<Map<String, dynamic>> filteredDirections = [];
+  late String baseUrl;
+  late int port;
+
+  Future<void> loadConfig() async {
+    final configString = await rootBundle.loadString('assets/config.json');
+    final config = json.decode(configString);
+    setState(() {
+      baseUrl = config['baseUrl'];
+      port = config['port'];
+    });
+    fetchDirections();
+  }
 
   Future<void> _addDirection() async {
-    final String directionAbbreviation =
-        _directionAbbreviationController.text;
+    final String directionAbbreviation = _directionAbbreviationController.text;
     final String name = _nameController.text;
     final String faculty = _facultyController.text;
 
     final response = await http.post(
-      Uri.parse('http://localhost:3000/directions/insert'),
+      Uri.parse('$baseUrl:$port/directions/insert'),
       headers: <String, String>{
         'Content-Type': 'application/json; charset=UTF-8',
       },
@@ -42,7 +53,7 @@ class _DirectionState extends State<Direction> {
   }
 
   Future<void> fetchDirections() async {
-    final response = await http.get(Uri.parse('http://localhost:3000/directions'));
+    final response = await http.get(Uri.parse('$baseUrl:$port/directions'));
     if (response.statusCode == 200) {
       final List<dynamic> data = json.decode(response.body);
       List<Map<String, dynamic>> directionsArray = [];
@@ -75,7 +86,7 @@ class _DirectionState extends State<Direction> {
 
   void updateDirection(int id, String directionAbbreviation, String name, String faculty) async {
     final response = await http.put(
-      Uri.parse('http://localhost:3000/directions/update/$id'),
+      Uri.parse('$baseUrl:$port/directions/update/$id'),
       headers: <String, String>{
         'Content-Type': 'application/json; charset=UTF-8',
       },
@@ -101,7 +112,7 @@ class _DirectionState extends State<Direction> {
   }
 
   Future<void> deleteDirection(int id) async {
-    final response = await http.delete(Uri.parse('http://localhost:3000/directions/$id'));
+    final response = await http.delete(Uri.parse('$baseUrl:$port/directions/$id'));
     if (response.statusCode == 200) {
       setState(() {
         directions.removeWhere((direction) => direction['id'] == id);
@@ -114,8 +125,8 @@ class _DirectionState extends State<Direction> {
 
   @override
   void initState() {
-    fetchDirections();
     super.initState();
+    loadConfig();
   }
 
   @override

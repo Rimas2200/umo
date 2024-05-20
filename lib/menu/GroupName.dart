@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:flutter/services.dart' show rootBundle;
 
 class GroupName extends StatefulWidget {
   @override
@@ -12,13 +13,25 @@ class _GroupNameState extends State<GroupName> {
   final TextEditingController _directionAbbreviationController = TextEditingController();
   List<Map<String, dynamic>> groupNames = [];
   List<Map<String, dynamic>> filteredGroupNames = [];
+  late String baseUrl;
+  late int port;
+
+  Future<void> loadConfig() async {
+    final configString = await rootBundle.loadString('assets/config.json');
+    final config = json.decode(configString);
+    setState(() {
+      baseUrl = config['baseUrl'];
+      port = config['port'];
+    });
+    fetchGroupNames();
+  }
 
   Future<void> _addGroupName() async {
     final String groupName = _groupNameController.text;
     final String directionAbbreviation = _directionAbbreviationController.text;
 
     final response = await http.post(
-      Uri.parse('http://localhost:3000/group_names/insert'),
+      Uri.parse('$baseUrl:$port/group_names/insert'),
       headers: <String, String>{
         'Content-Type': 'application/json; charset=UTF-8',
       },
@@ -37,7 +50,7 @@ class _GroupNameState extends State<GroupName> {
   }
 
   Future<void> fetchGroupNames() async {
-    final response = await http.get(Uri.parse('http://localhost:3000/group_names'));
+    final response = await http.get(Uri.parse('$baseUrl:$port/group_names'));
     if (response.statusCode == 200) {
       final List<dynamic> data = json.decode(response.body);
       List<Map<String, dynamic>> groupNamesArray = [];
@@ -65,9 +78,10 @@ class _GroupNameState extends State<GroupName> {
       ).toList();
     });
   }
+
   void updateGroupName(int id, String groupName, String directionAbbreviation) async {
     final response = await http.put(
-      Uri.parse('http://localhost:3000/group_names/update/$id'),
+      Uri.parse('$baseUrl:$port/group_names/update/$id'),
       headers: <String, String>{
         'Content-Type': 'application/json; charset=UTF-8',
       },
@@ -91,7 +105,7 @@ class _GroupNameState extends State<GroupName> {
   }
 
   Future<void> deleteGroupName(int id) async {
-    final response = await http.delete(Uri.parse('http://localhost:3000/group_names/$id'));
+    final response = await http.delete(Uri.parse('$baseUrl:$port/group_names/$id'));
     if (response.statusCode == 200) {
       setState(() {
         groupNames.removeWhere((groupName) => groupName['id'] == id);
@@ -101,10 +115,11 @@ class _GroupNameState extends State<GroupName> {
       throw Exception('Failed to delete group');
     }
   }
+
   @override
   void initState() {
-    fetchGroupNames();
     super.initState();
+    loadConfig();
   }
 
   @override
@@ -185,7 +200,6 @@ class _GroupNameState extends State<GroupName> {
                       ),
                     ),
                   ),
-
                 ),
               ],
             ),
@@ -240,7 +254,7 @@ class _GroupNameState extends State<GroupName> {
                                   ),
                                   ElevatedButton(
                                     onPressed: () {
-                                      updateGroupName(filteredGroupNames[index]['id'], groupNameController.text, directionAbbreviationController.text); // Вызов функции для редактирования группы
+                                      updateGroupName(filteredGroupNames[index]['id'], groupNameController.text, directionAbbreviationController.text);
                                       Navigator.of(context).pop();
                                     },
                                     child: const Text('Сохранить'),

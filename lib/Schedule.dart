@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:logger/logger.dart';
 import 'package:umo/lib/TimetablePage.dart';
 import 'package:umo/lib/TimetableGroup.dart';
+import 'package:flutter/services.dart' show rootBundle;
 
 class Schedule extends StatefulWidget {
   final String? selectedFaculty;
@@ -24,6 +25,7 @@ class _ScheduleState extends State<Schedule> {
   List<String> _groups = [];
   List<Map<String, dynamic>> groupNames = [];
   List<Map<String, dynamic>> filteredGroupNames = [];
+
   @override
   void initState() {
     super.initState();
@@ -31,87 +33,75 @@ class _ScheduleState extends State<Schedule> {
     _isExpanded = List<bool>.generate(6, (index) => false);
   }
 
-  void _toggleExpand(int index) {
-    setState(() {
-      _isExpanded[index] = !_isExpanded[index];
-    });
+  Future<Map<String, dynamic>> _loadConfig() async {
+    final String jsonString = await DefaultAssetBundle.of(context).loadString('assets/config.json');
+    return jsonDecode(jsonString);
   }
 
   Future<void> _fetchDirections() async {
     try {
-      final List<String> directions = await fetchDirections(widget.selectedFaculty!);
-      setState(() {
-        _directions = directions;
-      });
-    } catch (error) {
-      logger.e('Error fetching directions: $error');
-    }
-  }
-
-  Future<List<String>> fetchDirections(String facultyId) async {
-    try {
-      final response = await http.get(Uri.parse('http://localhost:3000/directions/$facultyId'));
+      final config = await _loadConfig();
+      final response = await http.get(Uri.parse('${config['baseUrl']}:${config['port']}/directions/${widget.selectedFaculty}'));
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
         if (data.isNotEmpty) {
-          return data.map((item) => item['direction_abbreviation'] as String).toList();
-        } else {
-          return [];
+          setState(() {
+            _directions = data.map((item) => item['direction_abbreviation'] as String).toList();
+          });
         }
       } else {
         throw Exception('Failed to load directions: ${response.statusCode}');
       }
     } catch (error) {
-      throw Exception('Error fetching directions: $error');
+      logger.e('Error fetching directions: $error');
     }
   }
+
   Future<void> fetchGroups(String directionId) async {
     try {
-      final response = await http.get(Uri.parse('http://localhost:3000/group_name/$directionId'));
+      final config = await _loadConfig();
+      final response = await http.get(Uri.parse('${config['baseUrl']}:${config['port']}/group_name/$directionId'));
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
         if (data.isNotEmpty) {
           setState(() {
             _groups = data.map((item) => item['name'] as String).toList();
           });
-        } else {
-          setState(() {
-            _groups = [];
-          });
         }
       } else {
         throw Exception('Failed to load groups: ${response.statusCode}');
       }
     } catch (error) {
-      throw Exception('Error fetching groups: $error');
+      logger.e('Error fetching groups: $error');
     }
   }
 
   Future<void> _addGroupName() async {
-    final String groupName = _groupNameController.text;
-    final String directionAbbreviation = _directionAbbreviationController.text;
+    try {
+      final config = await _loadConfig();
+      final response = await http.post(
+        Uri.parse('${config['baseUrl']}:${config['port']}/group_names/insert'),
+        headers: <String, String>{
+          'Content-Type': 'application/json; charset=UTF-8',
+        },
+        body: jsonEncode(<String, dynamic>{
+          'name': _groupNameController.text,
+          'direction_abbreviation': _directionAbbreviationController.text,
+        }),
+      );
 
-    final response = await http.post(
-      Uri.parse('http://localhost:3000/group_names/insert'),
-      headers: <String, String>{
-        'Content-Type': 'application/json; charset=UTF-8',
-      },
-      body: jsonEncode(<String, dynamic>{
-        'name': groupName,
-        'direction_abbreviation': directionAbbreviation,
-      }),
-    );
-
-    if (response.statusCode == 201) {
-      Navigator.of(context).pop(true);
-    } else {
-      throw Exception('Failed to add group');
+      if (response.statusCode == 201) {
+        Navigator.of(context).pop(true);
+      } else {
+        throw Exception('Failed to add group');
+      }
+    } catch (error) {
+      logger.e('Error adding group name: $error');
     }
   }
 
   @override
   Widget build(BuildContext context) {
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Schedule'),
@@ -297,7 +287,6 @@ class ScheduleItem {
 }
 
 class DayAccordion extends StatefulWidget {
-
   final String day;
   final String selectedGroup;
   var logger = Logger();
@@ -313,13 +302,11 @@ class DayAccordion extends StatefulWidget {
         print(j);
         if (schedule[i][j].discipline != null &&
             schedule[i][j].pair_type != null) {
-          logger.i('discipline: ${schedule[i][j].discipline} ${schedule[i][j]
-              .pair_type}');
+          logger.i('discipline: ${schedule[i][j].discipline} ${schedule[i][j].pair_type}');
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text(
-                  'Не заполнено поле с дисциплиной или не выбран тип пары'),
+              content: Text('Не заполнено поле с дисциплиной или не выбран тип пары'),
               duration: Duration(seconds: 3),
             ),
           );
@@ -378,7 +365,7 @@ class DayAccordion extends StatefulWidget {
           continue;
         }
 
-        logger.i('day_of_the_week: $day');
+        logger.i('day_of_the_week: ${day}');
         if (schedule[i][j].day_of_the_week != null) {
           logger.i('week: ${schedule[i][j].day_of_the_week}');
         } else {
@@ -398,55 +385,64 @@ class DayAccordion extends StatefulWidget {
         }
         logger.i('subgroup: $subgroup');
 
-        final url = Uri.parse('http://localhost:3000/timetable');
-        final body = jsonEncode({
-          'discipline': '${schedule[i][j].discipline} ${schedule[i][j]
-              .pair_type}',
-          'classroom': schedule[i][j].classroom ?? schedule[i][j].address,
-          'group_name': schedule[i][j].selectedGroup,
-          'pair_name': schedule[i][j].pair_name ?? schedule[i][j].pair_time,
-          'teacher_name': schedule[i][j].teacher,
-          'day_of_the_week': day,
-          'week': schedule[i][j].day_of_the_week,
-          'subgroup': subgroup,
-        });
+        try {
+          final config = await _loadConfig(context);
+          final url = Uri.parse('${config['baseUrl']}:${config['port']}/timetable');
+          final body = jsonEncode({
+            'discipline': '${schedule[i][j].discipline} ${schedule[i][j].pair_type}',
+            'classroom': schedule[i][j].classroom ?? schedule[i][j].address,
+            'group_name': schedule[i][j].selectedGroup,
+            'pair_name': schedule[i][j].pair_name ?? schedule[i][j].pair_time,
+            'teacher_name': schedule[i][j].teacher,
+            'day_of_the_week': day,
+            'week': schedule[i][j].day_of_the_week,
+            'subgroup': subgroup,
+          });
 
-        final response = await http.post(
-          url,
-          headers: <String, String>{
-            'Content-Type': 'application/json; charset=UTF-8',
-          },
-          body: body,
-        );
+          final response = await http.post(
+            url,
+            headers: <String, String>{
+              'Content-Type': 'application/json; charset=UTF-8',
+            },
+            body: body,
+          );
 
-        if (response.statusCode == 200) {
-          logger.i('Данные успешно отправлены');
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Данные успешно отправлены'),
-              duration: Duration(seconds: 3),
-            ),
-          );
-        } else if (response.statusCode == 409) {
-          logger.e('Запись уже существует: ${response.statusCode}');
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Такая запись уже существует'),
-              duration: Duration(seconds: 3),
-            ),
-          );
-        } else {
-          logger.e('Ошибка при отправке данных: ${response.statusCode}');
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Ошибка при отправке данных'),
-              duration: Duration(seconds: 3),
-            ),
-          );
-          logger.e(response.body);
+          if (response.statusCode == 200) {
+            logger.i('Данные успешно отправлены');
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Данные успешно отправлены'),
+                duration: Duration(seconds: 3),
+              ),
+            );
+          } else if (response.statusCode == 409) {
+            logger.e('Запись уже существует: ${response.statusCode}');
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Такая запись уже существует'),
+                duration: Duration(seconds: 3),
+              ),
+            );
+          } else {
+            logger.e('Ошибка при отправке данных: ${response.statusCode}');
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Ошибка при отправке данных'),
+                duration: Duration(seconds: 3),
+              ),
+            );
+            logger.e(response.body);
+          }
+        } catch (error) {
+          logger.e('Error: $error');
         }
       }
     }
+  }
+
+  Future<Map<String, dynamic>> _loadConfig(BuildContext context) async {
+    final String jsonString = await rootBundle.loadString('assets/config.json');
+    return jsonDecode(jsonString);
   }
 }
 
@@ -455,30 +451,47 @@ class _DayAccordionState extends State<DayAccordion> {
   List<String> _disciplines = [];
   ScheduleItem item = ScheduleItem();
   final List<List<ScheduleItem>> _schedule = [];
-  // ignore: non_constant_identifier_names
   List<String> _pair_type = [];
   List<String> _teachers = [];
   List<String> _classrooms = [];
   List<String> _address = [];
   var logger = Logger();
-  // ignore: non_constant_identifier_names
   final List<String> _pair_name = ['', '1', '2', '3', '4', '5', '6', '7', '8'];
-  // ignore: non_constant_identifier_names
   final List<String> _pair_time = ['', '10:00', '11:00', '12:00'];
+  late String _baseUrl;
+  late int _port;
 
   @override
   void initState() {
     super.initState();
-    _fetchDisciplines();
-    _fetchProfessors();
-    _fetchClassrooms();
-    _fetchAddress();
-    _fetchCoupletype();
+    _loadConfig();
+  }
+
+  Future<void> _loadConfig() async {
+    try {
+      final String configData = await rootBundle.loadString('assets/config.json');
+      final Map<String, dynamic> config = json.decode(configData);
+      setState(() {
+        _baseUrl = config['baseUrl'];
+        _port = config['port'];
+      });
+      _fetchData();
+    } catch (e) {
+      print('Error loading config: $e');
+    }
+  }
+
+  Future<void> _fetchData() async {
+    await _fetchDisciplines();
+    await _fetchProfessors();
+    await _fetchClassrooms();
+    await _fetchAddress();
+    await _fetchCoupletype();
   }
 
   Future<void> _fetchDisciplines() async {
     try {
-      final response = await http.get(Uri.parse('http://localhost:3000/discipline'));
+      final response = await http.get(Uri.parse('$_baseUrl:$_port/discipline'));
       if (response.statusCode == 200) {
         final Map<String, dynamic> data = jsonDecode(response.body);
         if (data.containsKey('disciplines')) {
@@ -500,7 +513,7 @@ class _DayAccordionState extends State<DayAccordion> {
   }
   Future<void> _fetchCoupletype() async {
     try {
-      final response = await http.get(Uri.parse('http://localhost:3000/couple_type'));
+      final response = await http.get(Uri.parse('$_baseUrl:$_port/couple_type'));
       if (response.statusCode == 200) {
         final Map<String, dynamic> data = jsonDecode(response.body);
         if (data.containsKey('pair_type')) {
@@ -522,7 +535,7 @@ class _DayAccordionState extends State<DayAccordion> {
   }
   Future<void> _fetchProfessors() async {
     try {
-      final response = await http.get(Uri.parse('http://localhost:3000/professor'));
+      final response = await http.get(Uri.parse('$_baseUrl:$_port/professor'));
       if (response.statusCode == 200) {
         final Map<String, dynamic> data = jsonDecode(response.body);
         if (data.containsKey('professors')) {
@@ -546,7 +559,7 @@ class _DayAccordionState extends State<DayAccordion> {
   }
   Future<void> _fetchClassrooms() async {
     try {
-      final response = await http.get(Uri.parse('http://localhost:3000/classroom'));
+      final response = await http.get(Uri.parse('$_baseUrl:$_port/classroom'));
       if (response.statusCode == 200) {
         final Map<String, dynamic> data = jsonDecode(response.body);
         if (data.containsKey('classrooms')) {
@@ -567,7 +580,7 @@ class _DayAccordionState extends State<DayAccordion> {
   }
   Future<void> _fetchAddress() async {
     try {
-      final response = await http.get(Uri.parse('http://localhost:3000/address'));
+      final response = await http.get(Uri.parse('$_baseUrl:$_port/address'));
       if (response.statusCode == 200) {
         final Map<String, dynamic> data = jsonDecode(response.body);
         if (data.containsKey('address')) {

@@ -16,6 +16,27 @@ class _ProfessorState extends State<Professor> {
   List<Map<String, dynamic>> professors = [];
   List<Map<String, dynamic>> filteredProfessors = [];
 
+  String baseUrl = '';
+  int port = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    loadConfig();
+  }
+
+  Future<void> loadConfig() async {
+    try {
+      String content = await DefaultAssetBundle.of(context).loadString('assets/config.json');
+      Map<String, dynamic> config = jsonDecode(content);
+      baseUrl = config['baseUrl'];
+      port = config['port'];
+      fetchProfessors();
+    } catch (e) {
+      print('Ошибка при загрузке конфигурационного файла: $e');
+    }
+  }
+
   Future<void> _addProfessor() async {
     final String lastName = _lastNameController.text;
     final String firstName = _firstNameController.text;
@@ -24,7 +45,7 @@ class _ProfessorState extends State<Professor> {
     final String department = _departmentController.text;
 
     final response = await http.post(
-      Uri.parse('http://localhost:3000/professors/insert'),
+      Uri.parse('$baseUrl:$port/professors/insert'),
       headers: <String, String>{
         'Content-Type': 'application/json; charset=UTF-8',
       },
@@ -46,7 +67,7 @@ class _ProfessorState extends State<Professor> {
   }
 
   Future<void> fetchProfessors() async {
-    final response = await http.get(Uri.parse('http://localhost:3000/professors'));
+    final response = await http.get(Uri.parse('$baseUrl:$port/professors'));
     if (response.statusCode == 200) {
       final List<dynamic> data = json.decode(response.body);
       List<Map<String, dynamic>> professorsArray = [];
@@ -83,7 +104,7 @@ class _ProfessorState extends State<Professor> {
 
   void updateProfessor(int id, String lastName, String firstName, String middleName, String position, String department) async {
     final response = await http.put(
-      Uri.parse('http://localhost:3000/professors/update/$id'),
+      Uri.parse('$baseUrl:$port/professors/update/$id'),
       headers: <String, String>{
         'Content-Type': 'application/json; charset=UTF-8',
       },
@@ -112,7 +133,7 @@ class _ProfessorState extends State<Professor> {
   }
 
   Future<void> deleteProfessor(int id) async {
-    final response = await http.delete(Uri.parse('http://localhost:3000/professors/$id'));
+    final response = await http.delete(Uri.parse('$baseUrl:$port/professors/$id'));
     if (response.statusCode == 200) {
       setState(() {
         professors.removeWhere((professor) => professor['id'] == id);
@@ -121,12 +142,6 @@ class _ProfessorState extends State<Professor> {
     } else {
       throw Exception('Failed to delete professor');
     }
-  }
-
-  @override
-  void initState() {
-    fetchProfessors();
-    super.initState();
   }
 
   @override

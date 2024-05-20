@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:flutter/services.dart' show rootBundle;
 
 class Faculty extends StatefulWidget {
   @override
@@ -12,13 +13,25 @@ class _FacultyState extends State<Faculty> {
   final TextEditingController _deanFullnameController = TextEditingController();
   List<Map<String, dynamic>> faculties = [];
   List<Map<String, dynamic>> filteredFaculties = [];
+  late String baseUrl;
+  late int port;
+
+  Future<void> loadConfig() async {
+    final configString = await rootBundle.loadString('assets/config.json');
+    final config = json.decode(configString);
+    setState(() {
+      baseUrl = config['baseUrl'];
+      port = config['port'];
+    });
+    fetchFaculties();
+  }
 
   Future<void> _addFaculty() async {
     final String facultyName = _facultyNameController.text;
     final String deanFullname = _deanFullnameController.text;
 
     final response = await http.post(
-      Uri.parse('http://localhost:3000/faculties/insert'),
+      Uri.parse('$baseUrl:$port/faculties/insert'),
       headers: <String, String>{
         'Content-Type': 'application/json; charset=UTF-8',
       },
@@ -37,7 +50,7 @@ class _FacultyState extends State<Faculty> {
   }
 
   Future<void> fetchFaculties() async {
-    final response = await http.get(Uri.parse('http://localhost:3000/faculties'));
+    final response = await http.get(Uri.parse('$baseUrl:$port/faculties'));
     if (response.statusCode == 200) {
       final List<dynamic> data = json.decode(response.body);
       List<Map<String, dynamic>> facultiesArray = [];
@@ -65,9 +78,10 @@ class _FacultyState extends State<Faculty> {
       ).toList();
     });
   }
-  void updateFaculty(int id, String facultyName, String deanFullname) async {
+
+  Future<void> updateFaculty(int id, String facultyName, String deanFullname) async {
     final response = await http.put(
-      Uri.parse('http://localhost:3000/faculties/update/$id'),
+      Uri.parse('$baseUrl:$port/faculties/update/$id'),
       headers: <String, String>{
         'Content-Type': 'application/json; charset=UTF-8',
       },
@@ -91,7 +105,7 @@ class _FacultyState extends State<Faculty> {
   }
 
   Future<void> deleteFaculty(int id) async {
-    final response = await http.delete(Uri.parse('http://localhost:3000/faculties/$id'));
+    final response = await http.delete(Uri.parse('$baseUrl:$port/faculties/$id'));
     if (response.statusCode == 200) {
       setState(() {
         faculties.removeWhere((faculty) => faculty['id'] == id);
@@ -101,10 +115,11 @@ class _FacultyState extends State<Faculty> {
       throw Exception('Failed to delete faculty');
     }
   }
+
   @override
   void initState() {
-    fetchFaculties();
     super.initState();
+    loadConfig();
   }
 
   @override

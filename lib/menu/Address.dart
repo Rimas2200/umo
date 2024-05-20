@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:flutter/services.dart' show rootBundle;
 
 class Address extends StatefulWidget {
   @override
@@ -12,13 +13,36 @@ class _AddressState extends State<Address> {
   final TextEditingController _facultyController = TextEditingController();
   List<Map<String, dynamic>> addresses = [];
   List<Map<String, dynamic>> filteredAddresses = [];
+  late String baseUrl;
+  late int port;
+
+  @override
+  void initState() {
+    super.initState();
+    loadConfig().then((_) {
+      fetchAddresses();
+    });
+  }
+
+  Future<void> loadConfig() async {
+    try {
+      final configData = await rootBundle.loadString('assets/config.json');
+      final config = json.decode(configData);
+      setState(() {
+        baseUrl = config['baseUrl'];
+        port = config['port'];
+      });
+    } catch (e) {
+      print('Error loading config: $e');
+    }
+  }
 
   Future<void> _addAddress() async {
     final String address = _addressController.text;
     final String faculty = _facultyController.text;
 
     final response = await http.post(
-      Uri.parse('http://localhost:3000/addresses/insert'),
+      Uri.parse('$baseUrl:$port/addresses/insert'),
       headers: <String, String>{
         'Content-Type': 'application/json; charset=UTF-8',
       },
@@ -37,7 +61,7 @@ class _AddressState extends State<Address> {
   }
 
   Future<void> fetchAddresses() async {
-    final response = await http.get(Uri.parse('http://localhost:3000/addresses'));
+    final response = await http.get(Uri.parse('$baseUrl:$port/addresses'));
     if (response.statusCode == 200) {
       final List<dynamic> data = json.decode(response.body);
       List<Map<String, dynamic>> addressesArray = [];
@@ -68,7 +92,7 @@ class _AddressState extends State<Address> {
 
   void updateAddress(int id, String address, String faculty) async {
     final response = await http.put(
-      Uri.parse('http://localhost:3000/addresses/update/$id'),
+      Uri.parse('$baseUrl:$port/addresses/update/$id'),
       headers: <String, String>{
         'Content-Type': 'application/json; charset=UTF-8',
       },
@@ -92,7 +116,7 @@ class _AddressState extends State<Address> {
   }
 
   Future<void> deleteAddress(int id) async {
-    final response = await http.delete(Uri.parse('http://localhost:3000/addresses/$id'));
+    final response = await http.delete(Uri.parse('$baseUrl:$port/addresses/$id'));
     if (response.statusCode == 200) {
       setState(() {
         addresses.removeWhere((address) => address['id'] == id);
@@ -101,12 +125,6 @@ class _AddressState extends State<Address> {
     } else {
       throw Exception('Failed to delete address');
     }
-  }
-
-  @override
-  void initState() {
-    fetchAddresses();
-    super.initState();
   }
 
   @override
