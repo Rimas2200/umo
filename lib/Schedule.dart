@@ -133,7 +133,10 @@ class _ScheduleState extends State<Schedule> {
                   ),
                   onPressed: () {
                     Navigator.of(context).push(MaterialPageRoute(
-                      builder: (context) => TimetableGroup(selectedGroup: _selectedGroup),
+                      builder: (context) => TimetableGroup(
+                        selectedGroup: _selectedGroup,
+                        directions: _directions,
+                      ),
                     ));
                   },
 

@@ -354,24 +354,28 @@ app.get('/directions', (req, res) => {
   });
 });
 app.post('/directions/insert', (req, res) => {
-  const { direction_abbreviation, name, faculty } = req.body;
-  pool.query('INSERT INTO direction (direction_abbreviation, name, faculty) VALUES (?, ?, ?)', [direction_abbreviation, name, faculty], (error, results) => {
-    if (error) {
-      console.error('Ошибка при выполнении запроса:', error);
-      res.status(500).json({ error: 'Ошибка сервера' });
-    } else {
-      const newDirectionId = results.insertId;
-      console.log(`Добавлена новая специальность с id ${newDirectionId}`);
-      res.status(201).json({ id: newDirectionId, message: 'Специальность успешно добавлена' });
+  const { direction_abbreviation, code, name, faculty } = req.body;
+  pool.query(
+    'INSERT INTO direction (direction_abbreviation, code, name, faculty) VALUES (?, ?, ?, ?)',
+    [direction_abbreviation, code, name, faculty],
+    (error, results) => {
+      if (error) {
+        console.error('Ошибка при выполнении запроса:', error);
+        res.status(500).json({ error: 'Ошибка сервера' });
+      } else {
+        const newDirectionId = results.insertId;
+        console.log(`Добавлена новая специальность с id ${newDirectionId}`);
+        res.status(201).json({ id: newDirectionId, message: 'Специальность успешно добавлена' });
+      }
     }
-  });
+  );
 });
 app.put('/directions/update/:id', (req, res) => {
   const id = req.params.id;
-  const { direction_abbreviation, name, faculty } = req.body;
+  const { direction_abbreviation, code, name, faculty } = req.body;
   pool.query(
-    'UPDATE direction SET direction_abbreviation = ?, name = ?, faculty = ? WHERE id = ?',
-    [direction_abbreviation, name, faculty, id],
+    'UPDATE direction SET direction_abbreviation = ?, code = ?, name = ?, faculty = ? WHERE id = ?',
+    [direction_abbreviation, code, name, faculty, id],
     (error, results) => {
       if (error) {
         console.error('Ошибка при выполнении запроса:', error);
@@ -396,6 +400,7 @@ app.delete('/directions/:id', (req, res) => {
     }
   });
 });
+
 app.get('/group_names', (req, res) => {
   pool.query('SELECT * FROM group_name', (error, results) => {
     if (error) {

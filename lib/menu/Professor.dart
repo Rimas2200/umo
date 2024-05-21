@@ -11,13 +11,28 @@ class _ProfessorState extends State<Professor> {
   final TextEditingController _lastNameController = TextEditingController();
   final TextEditingController _firstNameController = TextEditingController();
   final TextEditingController _middleNameController = TextEditingController();
-  final TextEditingController _positionController = TextEditingController();
   final TextEditingController _departmentController = TextEditingController();
   List<Map<String, dynamic>> professors = [];
   List<Map<String, dynamic>> filteredProfessors = [];
-
+  String selectedPosition = '';
   String baseUrl = '';
   int port = 0;
+
+  final List<String> positions = [
+    'Преподаватель',
+    'Ассистент',
+    'Старший преподаватель',
+    'Доцент',
+    'Профессор',
+    'Лаборант',
+    'Старший лаборант',
+    'Лаборант-исследователь',
+    'Младший научный сотрудник',
+    'Научный сотрудник',
+    'Старший научный сотрудник',
+    'Ведущий научный сотрудник',
+    'Главный научный сотрудник',
+  ];
 
   @override
   void initState() {
@@ -41,7 +56,6 @@ class _ProfessorState extends State<Professor> {
     final String lastName = _lastNameController.text;
     final String firstName = _firstNameController.text;
     final String middleName = _middleNameController.text;
-    final String position = _positionController.text;
     final String department = _departmentController.text;
 
     final response = await http.post(
@@ -53,7 +67,7 @@ class _ProfessorState extends State<Professor> {
         'last_name': lastName,
         'first_name': firstName,
         'middle_name': middleName,
-        'position': position,
+        'position': selectedPosition,
         'departement': department,
       }),
     );
@@ -196,8 +210,19 @@ class _ProfessorState extends State<Professor> {
                                     labelText: 'Отчество',
                                   ),
                                 ),
-                                TextField(
-                                  controller: _positionController,
+                                DropdownButtonFormField<String>(
+                                  value: selectedPosition.isEmpty ? null : selectedPosition,
+                                  items: positions.map((String position) {
+                                    return DropdownMenuItem<String>(
+                                      value: position,
+                                      child: Text(position),
+                                    );
+                                  }).toList(),
+                                  onChanged: (newValue) {
+                                    setState(() {
+                                      selectedPosition = newValue!;
+                                    });
+                                  },
                                   decoration: const InputDecoration(
                                     labelText: 'Должность',
                                   ),
@@ -266,12 +291,12 @@ class _ProfessorState extends State<Professor> {
                               String firstName = filteredProfessors[index]['first_name'];
                               String middleName = filteredProfessors[index]['middle_name'];
                               String position = filteredProfessors[index]['position'];
-                              String departement = filteredProfessors[index]['departement'] ?? '';
+                              String department = filteredProfessors[index]['departement'] ?? '';
                               TextEditingController lastNameController = TextEditingController(text: lastName);
                               TextEditingController firstNameController = TextEditingController(text: firstName);
                               TextEditingController middleNameController = TextEditingController(text: middleName);
                               TextEditingController positionController = TextEditingController(text: position);
-                              TextEditingController departmentController = TextEditingController(text: departement);
+                              TextEditingController departmentController = TextEditingController(text: department);
 
                               return AlertDialog(
                                 title: const Text('Редактировать преподавателя'),

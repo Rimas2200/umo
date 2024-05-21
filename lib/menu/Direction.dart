@@ -10,6 +10,7 @@ class Direction extends StatefulWidget {
 
 class _DirectionState extends State<Direction> {
   final TextEditingController _directionAbbreviationController = TextEditingController();
+  final TextEditingController _codeController = TextEditingController();
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _facultyController = TextEditingController();
   List<Map<String, dynamic>> directions = [];
@@ -29,6 +30,7 @@ class _DirectionState extends State<Direction> {
 
   Future<void> _addDirection() async {
     final String directionAbbreviation = _directionAbbreviationController.text;
+    final String code = _codeController.text;
     final String name = _nameController.text;
     final String faculty = _facultyController.text;
 
@@ -39,6 +41,7 @@ class _DirectionState extends State<Direction> {
       },
       body: jsonEncode(<String, dynamic>{
         'direction_abbreviation': directionAbbreviation,
+        'code': code,
         'name': name,
         'faculty': faculty,
       }),
@@ -61,6 +64,7 @@ class _DirectionState extends State<Direction> {
         directionsArray.add({
           'id': direction['id'] as int,
           'direction_abbreviation': direction['direction_abbreviation'] as String,
+          'code': direction['code'] as String,
           'name': direction['name'] as String,
           'faculty': direction['faculty'] as String,
         });
@@ -78,13 +82,14 @@ class _DirectionState extends State<Direction> {
     setState(() {
       filteredDirections = directions.where((direction) =>
       direction['direction_abbreviation'].toLowerCase().contains(query.toLowerCase()) ||
+          direction['code'].toLowerCase().contains(query.toLowerCase()) ||
           direction['name'].toLowerCase().contains(query.toLowerCase()) ||
           direction['faculty'].toLowerCase().contains(query.toLowerCase())
       ).toList();
     });
   }
 
-  void updateDirection(int id, String directionAbbreviation, String name, String faculty) async {
+  void updateDirection(int id, String directionAbbreviation, String code, String name, String faculty) async {
     final response = await http.put(
       Uri.parse('$baseUrl:$port/directions/update/$id'),
       headers: <String, String>{
@@ -92,6 +97,7 @@ class _DirectionState extends State<Direction> {
       },
       body: jsonEncode(<String, String>{
         'direction_abbreviation': directionAbbreviation,
+        'code': code,
         'name': name,
         'faculty': faculty,
       }),
@@ -102,6 +108,7 @@ class _DirectionState extends State<Direction> {
       if (index != -1) {
         setState(() {
           filteredDirections[index]['direction_abbreviation'] = directionAbbreviation;
+          filteredDirections[index]['code'] = code;
           filteredDirections[index]['name'] = name;
           filteredDirections[index]['faculty'] = faculty;
         });
@@ -170,6 +177,12 @@ class _DirectionState extends State<Direction> {
                                   ),
                                 ),
                                 TextField(
+                                  controller: _codeController,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Код',
+                                  ),
+                                ),
+                                TextField(
                                   controller: _nameController,
                                   decoration: const InputDecoration(
                                     labelText: 'Название направления',
@@ -226,6 +239,7 @@ class _DirectionState extends State<Direction> {
                   subtitle: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      Text(filteredDirections[index]['code']),
                       Text(filteredDirections[index]['name']),
                       Text(filteredDirections[index]['faculty']),
                     ],
@@ -240,9 +254,11 @@ class _DirectionState extends State<Direction> {
                             context: context,
                             builder: (BuildContext context) {
                               String directionAbbreviation = filteredDirections[index]['direction_abbreviation'];
+                              String code = filteredDirections[index]['code'];
                               String name = filteredDirections[index]['name'];
                               String faculty = filteredDirections[index]['faculty'];
                               TextEditingController directionAbbreviationController = TextEditingController(text: directionAbbreviation);
+                              TextEditingController codeController = TextEditingController(text: code);
                               TextEditingController nameController = TextEditingController(text: name);
                               TextEditingController facultyController = TextEditingController(text: faculty);
 
@@ -255,6 +271,12 @@ class _DirectionState extends State<Direction> {
                                         controller: directionAbbreviationController,
                                         decoration: const InputDecoration(
                                           labelText: 'Аббревиатура направления',
+                                        ),
+                                      ),
+                                      TextField(
+                                        controller: codeController,
+                                        decoration: const InputDecoration(
+                                          labelText: 'Код',
                                         ),
                                       ),
                                       TextField(
@@ -281,7 +303,7 @@ class _DirectionState extends State<Direction> {
                                   ),
                                   ElevatedButton(
                                     onPressed: () {
-                                      updateDirection(filteredDirections[index]['id'], directionAbbreviationController.text, nameController.text, facultyController.text);
+                                      updateDirection(filteredDirections[index]['id'], directionAbbreviationController.text, codeController.text, nameController.text, facultyController.text);
                                       Navigator.of(context).pop();
                                     },
                                     child: const Text('Сохранить'),
