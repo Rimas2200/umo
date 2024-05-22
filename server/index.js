@@ -739,6 +739,25 @@ app.get('/schedule', (req, res) => {
     });
   });
 });
+app.get('/schedule/extracts/teacher', (req, res) => {
+  const teacherName = req.query.teacher_name;
+  console.log(teacherName);
+  if (!teacherName) {
+    return res.status(400).json({ error: 'Teacher name is required' });
+  }
+  pool.query('SELECT * FROM schedule WHERE teacher_name = ?', [teacherName], (error, results) => {
+    if (error) {
+      console.error('Error executing schedule query:', error);
+      return res.status(500).json({ error: 'Server error' });
+    }
+    if (results && results.length > 0) {
+      res.json(results);
+    } else {
+      res.json([]);
+    }
+  });
+});
+
 app.get('/faculties', (req, res) => {
   pool.query('SELECT * FROM faculty', (error, results) => {
     if (error) {

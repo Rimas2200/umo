@@ -5,6 +5,7 @@ import 'package:logger/logger.dart';
 import 'package:umo/lib/TimetablePage.dart';
 import 'package:umo/lib/TimetableGroup.dart';
 import 'package:flutter/services.dart' show rootBundle;
+import 'package:umo/lib/Extracts.dart';
 
 class Schedule extends StatefulWidget {
   final String? selectedFaculty;
@@ -113,10 +114,13 @@ class _ScheduleState extends State<Schedule> {
               children: [
                 IconButton(
                   icon: const Tooltip(
-                    message: 'Экспорт',
-                    child: Icon(Icons.save_alt),
+                    message: 'Выписки',
+                    child: Icon(Icons.school),
                   ),
                   onPressed: () {
+                    Navigator.of(context).push(MaterialPageRoute(
+                      builder: (context) => Extracts(),
+                    ));
                   },
                 ),
                 IconButton(
