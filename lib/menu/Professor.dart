@@ -11,9 +11,11 @@ class _ProfessorState extends State<Professor> {
   final TextEditingController _lastNameController = TextEditingController();
   final TextEditingController _firstNameController = TextEditingController();
   final TextEditingController _middleNameController = TextEditingController();
-  final TextEditingController _departmentController = TextEditingController();
+  final TextEditingController _departementController = TextEditingController();
   List<Map<String, dynamic>> professors = [];
   List<Map<String, dynamic>> filteredProfessors = [];
+  List<Map<String, dynamic>> departaments = [];
+  List<Map<String, dynamic>> filteredDepartaments = [];
   String selectedPosition = '';
   String baseUrl = '';
   int port = 0;
@@ -37,8 +39,13 @@ class _ProfessorState extends State<Professor> {
   @override
   void initState() {
     super.initState();
-    loadConfig();
+    loadConfig().then((_) {
+      fetchDepartaments();
+    }).catchError((error) {
+      print('Error loading configuration: $error');
+    });
   }
+
 
   Future<void> loadConfig() async {
     try {
@@ -51,12 +58,31 @@ class _ProfessorState extends State<Professor> {
       print('Ошибка при загрузке конфигурационного файла: $e');
     }
   }
-
+  Future<void> fetchDepartaments() async {
+    final response = await http.get(Uri.parse('$baseUrl:$port/departaments'));
+    if (response.statusCode == 200) {
+      final List<dynamic> data = json.decode(response.body);
+      List<Map<String, dynamic>> departamentsArray = [];
+      data.forEach((departament) {
+        departamentsArray.add({
+          'id': departament['id'] as int,
+          'name': departament['name'] as String,
+          'phone': departament['phone'] as String,
+        });
+      });
+      setState(() {
+        departaments = departamentsArray;
+        filteredDepartaments = departamentsArray;
+      });
+    } else {
+      throw Exception('Failed to load departaments');
+    }
+  }
   Future<void> _addProfessor() async {
     final String lastName = _lastNameController.text;
     final String firstName = _firstNameController.text;
     final String middleName = _middleNameController.text;
-    final String department = _departmentController.text;
+    final String departement = _departementController.text;
 
     final response = await http.post(
       Uri.parse('$baseUrl:$port/professors/insert'),
@@ -68,7 +94,7 @@ class _ProfessorState extends State<Professor> {
         'first_name': firstName,
         'middle_name': middleName,
         'position': selectedPosition,
-        'departement': department,
+        'departement': departement,
       }),
     );
 
@@ -92,7 +118,7 @@ class _ProfessorState extends State<Professor> {
           'first_name': professor['first_name'] as String,
           'middle_name': professor['middle_name'] as String,
           'position': professor['position'] as String,
-          'departement': professor['departement'] as String?,
+          'departement': professor['departement'] as String,
         });
       });
       setState(() {
@@ -111,12 +137,12 @@ class _ProfessorState extends State<Professor> {
           professor['first_name'].toLowerCase().contains(query.toLowerCase()) ||
           professor['middle_name'].toLowerCase().contains(query.toLowerCase()) ||
           professor['position'].toLowerCase().contains(query.toLowerCase()) ||
-          (professor['departement'] != null && professor['departement']!.toLowerCase().contains(query.toLowerCase()))
+          (professor['departement'].toLowerCase().contains(query.toLowerCase()))
       ).toList();
     });
   }
 
-  void updateProfessor(int id, String lastName, String firstName, String middleName, String position, String department) async {
+  void updateProfessor(int id, String lastName, String firstName, String middleName, String position, String departement) async {
     final response = await http.put(
       Uri.parse('$baseUrl:$port/professors/update/$id'),
       headers: <String, String>{
@@ -127,7 +153,7 @@ class _ProfessorState extends State<Professor> {
         'first_name': firstName,
         'middle_name': middleName,
         'position': position,
-        'departement': department,
+        'departement': departement,
       }),
     );
     if (response.statusCode == 200) {
@@ -138,7 +164,7 @@ class _ProfessorState extends State<Professor> {
           filteredProfessors[index]['first_name'] = firstName;
           filteredProfessors[index]['middle_name'] = middleName;
           filteredProfessors[index]['position'] = position;
-          filteredProfessors[index]['departement'] = department;
+          filteredProfessors[index]['departement'] = departement;
         });
       }
     } else {
@@ -227,8 +253,18 @@ class _ProfessorState extends State<Professor> {
                                     labelText: 'Должность',
                                   ),
                                 ),
-                                TextField(
-                                  controller: _departmentController,
+                                DropdownButtonFormField<Map<String, dynamic>>(
+                                  value: null,
+                                  items: filteredDepartaments.map((Map<String, dynamic> departament) {
+                                    return DropdownMenuItem<Map<String, dynamic>>(
+                                      value: departament,
+                                      child: Text(departament['name'] as String),
+                                    );
+                                  }).toList(),
+                                  onChanged: (newValue) {
+                                    // Устанавливаем выбранное значение в кафедру
+                                    _departementController.text = newValue!['name'] as String;
+                                  },
                                   decoration: const InputDecoration(
                                     labelText: 'Кафедра',
                                   ),
@@ -277,7 +313,7 @@ class _ProfessorState extends State<Professor> {
                   title: Text(
                       '${filteredProfessors[index]['last_name']} ${filteredProfessors[index]['first_name']} ${filteredProfessors[index]['middle_name']} - ${filteredProfessors[index]['position']}'
                   ),
-                  subtitle: Text(filteredProfessors[index]['departement'] ?? ''),
+                  subtitle: Text(filteredProfessors[index]['departement']),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -291,12 +327,12 @@ class _ProfessorState extends State<Professor> {
                               String firstName = filteredProfessors[index]['first_name'];
                               String middleName = filteredProfessors[index]['middle_name'];
                               String position = filteredProfessors[index]['position'];
-                              String department = filteredProfessors[index]['departement'] ?? '';
+                              String departement = filteredProfessors[index]['departement'];
                               TextEditingController lastNameController = TextEditingController(text: lastName);
                               TextEditingController firstNameController = TextEditingController(text: firstName);
                               TextEditingController middleNameController = TextEditingController(text: middleName);
                               TextEditingController positionController = TextEditingController(text: position);
-                              TextEditingController departmentController = TextEditingController(text: department);
+                              TextEditingController departementController = TextEditingController(text: departement);
 
                               return AlertDialog(
                                 title: const Text('Редактировать преподавателя'),
@@ -328,7 +364,7 @@ class _ProfessorState extends State<Professor> {
                                         ),
                                       ),
                                       TextField(
-                                        controller: departmentController,
+                                        controller: departementController,
                                         decoration: const InputDecoration(
                                           labelText: 'Кафедра',
                                         ),
@@ -351,7 +387,7 @@ class _ProfessorState extends State<Professor> {
                                         firstNameController.text,
                                         middleNameController.text,
                                         positionController.text,
-                                        departmentController.text,
+                                        departementController.text,
                                       );
                                       Navigator.of(context).pop();
                                     },

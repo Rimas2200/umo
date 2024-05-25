@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:flutter/services.dart' show rootBundle;
 
 class TimetableGroup extends StatefulWidget {
   final String selectedGroup;
@@ -51,7 +50,9 @@ class _TimetableGroupState extends State<TimetableGroup> {
       } else {
         throw Exception('Failed to load groups: ${response.statusCode}');
       }
-    } catch (error) {}
+    } catch (error) {
+      print('Error fetching groups: $error');
+    }
   }
 
   Future<List<Map<String, dynamic>>> fetchGroupSchedule(String groupName) async {
@@ -74,10 +75,22 @@ class _TimetableGroupState extends State<TimetableGroup> {
     }
   }
 
-  void _onFacultyPressed() {
-  }
-
-  void _onDirectionPressed() {
+  Future<void> deleteScheduleItem(String id) async {
+    try {
+      final config = await _loadConfig();
+      final response = await http.delete(
+        Uri.parse('${config['baseUrl']}:${config['port']}/schedule/$id'),
+      );
+      if (response.statusCode == 200) {
+        setState(() {
+          _futureGroupSchedule = fetchGroupSchedule(widget.selectedGroup);
+        });
+      } else {
+        throw Exception('Failed to delete schedule item: ${response.statusCode}');
+      }
+    } catch (error) {
+      print('Error deleting schedule item: $error');
+    }
   }
 
   void _onRefreshPressed() {
@@ -93,7 +106,7 @@ class _TimetableGroupState extends State<TimetableGroup> {
         title: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Spacer(),
+            const Spacer(),
             PopupMenuButton<String>(
               icon: const Icon(Icons.menu_book),
               tooltip: 'Выбор направления',
@@ -108,15 +121,17 @@ class _TimetableGroupState extends State<TimetableGroup> {
               onSelected: (String value) async {
                 try {
                   await fetchGroups(value);
-                } catch (error) {}
+                } catch (error) {
+                  return;
+                }
               },
             ),
             IconButton(
-              icon: Icon(Icons.refresh),
+              icon: const Icon(Icons.refresh),
               onPressed: _onRefreshPressed,
               tooltip: 'Обновить',
             ),
-            Spacer(),
+            const Spacer(),
           ],
         ),
       ),
@@ -133,6 +148,7 @@ class _TimetableGroupState extends State<TimetableGroup> {
       ),
     );
   }
+
   Widget _buildGroupColumns() {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
@@ -148,22 +164,138 @@ class _TimetableGroupState extends State<TimetableGroup> {
               itemCount: _groups.length,
               itemBuilder: (BuildContext context, int index) {
                 String groupName = _groups[index];
-                return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                  child: Container(
-                    padding: EdgeInsets.all(12.0),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[200],
-                      borderRadius: BorderRadius.circular(8.0),
-                    ),
-                    child: Center(
-                      child: Text(
-                        groupName,
-                        style: TextStyle(fontSize: 20.0, fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                    width: _calculateGroupWidth(groupName),
-                  ),
+                return FutureBuilder<List<Map<String, dynamic>>>(
+                  future: fetchGroupSchedule(groupName),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    } else if (snapshot.hasError) {
+                      return Center(child: Text('Error: ${snapshot.error}'));
+                    } else if (snapshot.hasData && snapshot.data!.isEmpty) {
+                      return Center(child: Text('Расписание для группы $groupName не найдено.'));
+                    } else {
+                      final List<Map<String, dynamic>> schedule = snapshot.data ?? [];
+
+                      final Map<String, List<Map<String, dynamic>>> groupedByDay = {};
+                      for (var item in schedule) {
+                        String key = '${item['day_of_the_week']}';
+                        if (groupedByDay.containsKey(key)) {
+                          groupedByDay[key]!.add(item);
+                        } else {
+                          groupedByDay[key] = [item];
+                        }
+                      }
+
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.vertical,
+                          child: Container(
+                            padding: const EdgeInsets.all(12.0),
+                            decoration: BoxDecoration(
+                              color: Colors.grey[200],
+                              borderRadius: BorderRadius.circular(8.0),
+                            ),
+                            width: _calculateGroupWidth(groupName),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Text(
+                                  groupName,
+                                  style: const TextStyle(fontSize: 20.0, fontWeight: FontWeight.bold),
+                                  textAlign: TextAlign.center,
+                                ),
+                                const SizedBox(height: 8.0),
+                                ...groupedByDay.entries.map((dayEntry) {
+                                  String dayOfWeek = dayEntry.key;
+                                  List<Map<String, dynamic>> dayItems = dayEntry.value;
+
+                                  final Map<String, List<Map<String, dynamic>>> groupedByPair = {};
+                                  for (var item in dayItems) {
+                                    String key = '${item['pair_name']}';
+                                    if (groupedByPair.containsKey(key)) {
+                                      groupedByPair[key]!.add(item);
+                                    } else {
+                                      groupedByPair[key] = [item];
+                                    }
+                                  }
+
+                                  return Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        dayOfWeek,
+                                        style: const TextStyle(fontSize: 25.0, fontWeight: FontWeight.bold),
+                                      ),
+                                      ...groupedByPair.entries.map((pairEntry) {
+                                        String pairName = pairEntry.key;
+                                        List<Map<String, dynamic>> items = pairEntry.value;
+
+                                        return Padding(
+                                          padding: const EdgeInsets.all(8.0),
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                '$pairName пара',
+                                                style: const TextStyle(fontSize: 20.0),
+                                              ),
+                                              const SizedBox(height: 12.0),
+                                              Container(
+                                                padding: const EdgeInsets.all(8.0),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.white,
+                                                  borderRadius: BorderRadius.circular(8.0),
+                                                ),
+                                                child: items.any((item) => item['subgroup'] != 'нет разделения' && item['subgroup'] != 'не определена')
+                                                    ? Row(
+                                                  children: [
+                                                    if (items.any((item) => item['subgroup'] == '1'))
+                                                      Expanded(
+                                                        flex: 1,
+                                                        child: Column(
+                                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                                          children: items
+                                                              .where((item) => item['subgroup'] == '1')
+                                                              .map((item) => _buildScheduleItem(item, TextAlign.start))
+                                                              .toList(),
+                                                        ),
+                                                      ),
+                                                    if (items.any((item) => item['subgroup'] == '2'))
+                                                      Expanded(
+                                                        flex: 1,
+                                                        child: Column(
+                                                          crossAxisAlignment: CrossAxisAlignment.end,
+                                                          children: items
+                                                              .where((item) => item['subgroup'] == '2')
+                                                              .map((item) => _buildScheduleItem(item, TextAlign.end))
+                                                              .toList(),
+                                                        ),
+                                                      ),
+                                                  ],
+                                                )
+                                                    : Column(
+                                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                                  children: items.map((item) => SizedBox(
+                                                    width: 900,
+                                                    child: _buildScheduleItem(item, TextAlign.center),
+                                                  )).toList(),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                      }),
+                                    ],
+                                  );
+                                }),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    }
+                  },
                 );
               },
             ),
@@ -173,13 +305,83 @@ class _TimetableGroupState extends State<TimetableGroup> {
     );
   }
 
+  Widget _buildScheduleItem(Map<String, dynamic> item, TextAlign textAlign) {
+    return Column(
+      crossAxisAlignment: textAlign == TextAlign.center ? CrossAxisAlignment.center :
+      textAlign == TextAlign.end ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(
+              child: RichText(
+                textAlign: textAlign,
+                text: TextSpan(
+                  children: [
+                    WidgetSpan(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 0.0),
+                        child: IconButton(
+                          icon: const Icon(Icons.delete, color: Color.fromARGB(128, 12, 12, 12)),
+                          onPressed: () async {
+                            await deleteScheduleItem(item['id'].toString());
+                          },
+                          tooltip: 'Удалить запись:${item['discipline']}',
+                          iconSize: 20.0,
+                          constraints: const BoxConstraints.tightFor(
+                            width: 28.0,
+                            height: 28.0,
+                          ),
+                        ),
+                      ),
+                    ),
+                    TextSpan(
+                      text: '${item['discipline'].split(' ').take(item['discipline'].split(' ').length - 1).join(' ')}',
+                      style: const TextStyle(fontSize: 20.0, color: Colors.black),
+                    ),
+                    TextSpan(
+                      text: ' ${item['discipline'].split(' ').last}',
+                      style: const TextStyle(fontSize: 20.0, fontWeight: FontWeight.bold, color: Colors.black),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10.0),
+        Text(
+          'Неделя: ${item['week']}',
+          style: const TextStyle(fontSize: 16.0),
+          overflow: TextOverflow.ellipsis,
+          maxLines: 1,
+          textAlign: textAlign,
+        ),
+        Text(
+          'Аудитория: ${item['classroom']}',
+          style: const TextStyle(fontSize: 16.0),
+          overflow: TextOverflow.ellipsis,
+          maxLines: 1,
+          textAlign: textAlign,
+        ),
+        Text(
+          'Преподаватель: ${item['teacher_name']}',
+          style: const TextStyle(fontSize: 16.0),
+          overflow: TextOverflow.ellipsis,
+          maxLines: 1,
+          textAlign: textAlign,
+        ),
+      ],
+    );
+  }
+
+
 
   double _calculateGroupWidth(String groupName) {
     final textWidth = TextPainter(
-      text: TextSpan(text: groupName, style: TextStyle(fontSize: 20.0, fontWeight: FontWeight.bold)),
+      text: TextSpan(text: groupName, style: const TextStyle(fontSize: 20.0, fontWeight: FontWeight.bold)),
       textDirection: TextDirection.ltr,
     )..layout();
-
-    return textWidth.width + 400.0;
+    return textWidth.width + 800.0;
   }
 }

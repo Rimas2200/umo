@@ -424,9 +424,12 @@ class DayAccordion extends StatefulWidget {
             );
           } else if (response.statusCode == 409) {
             logger.e('Запись уже существует: ${response.statusCode}');
+
+            Map<String, dynamic> conflictData = jsonDecode(response.body);
+
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Такая запись уже существует'),
+              SnackBar(
+                content: Text('Такая запись уже существует: ${conflictData['pair_name']} ${conflictData['discipline']} ${conflictData['classroom']} ${conflictData['teacher_name']}'),
                 duration: Duration(seconds: 3),
               ),
             );

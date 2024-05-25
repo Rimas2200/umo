@@ -41,9 +41,11 @@ app.post('/timetable', async (req, res) => {
       subgroup
     });
 
-    if (existingTimetable.length > 0) {
-      return res.status(409).json({ error: 'Такая запись уже существует' });
-    }
+if (existingTimetable.length > 0) {
+    const existingRecord = existingTimetable[0];
+
+    return res.status(409).json(existingRecord);
+}
 
     const newTimetable = {
       discipline,
@@ -585,8 +587,8 @@ app.get('/professors', (req, res) => {
   });
 });
 app.post('/professors/insert', (req, res) => {
-  const { last_name, first_name, middle_name, position, department } = req.body;
-  pool.query('INSERT INTO professor (last_name, first_name, middle_name, position, departement) VALUES (?, ?, ?, ?, ?)', [last_name, first_name, middle_name, position, department], (error, results) => {
+  const { last_name, first_name, middle_name, position, departement } = req.body;
+  pool.query('INSERT INTO professor (last_name, first_name, middle_name, position, departement) VALUES (?, ?, ?, ?, ?)', [last_name, first_name, middle_name, position, departement], (error, results) => {
     if (error) {
       console.error('Ошибка при выполнении запроса:', error);
       res.status(500).json({ error: 'Ошибка сервера' });
@@ -599,10 +601,10 @@ app.post('/professors/insert', (req, res) => {
 });
 app.put('/professors/update/:id', (req, res) => {
   const id = req.params.id;
-  const { last_name, first_name, middle_name, position, department } = req.body;
+  const { last_name, first_name, middle_name, position, departement } = req.body;
   pool.query(
     'UPDATE professor SET last_name = ?, first_name = ?, middle_name = ?, position = ?, departement = ? WHERE id = ?',
-    [last_name, first_name, middle_name, position, department, id],
+    [last_name, first_name, middle_name, position, departement, id],
     (error, results) => {
       if (error) {
         console.error('Ошибка при выполнении запроса:', error);
@@ -757,7 +759,22 @@ app.get('/schedule/extracts/teacher', (req, res) => {
     }
   });
 });
+app.delete('/schedule/:id', (req, res) => {
+  const scheduleItemId = req.params.id;
 
+  pool.query('DELETE FROM schedule WHERE id = ?', [scheduleItemId], (error, results) => {
+    if (error) {
+      console.error('Ошибка при выполнении запроса:', error);
+      res.status(500).json({ error: 'Ошибка сервера' });
+    } else {
+      if (results.affectedRows > 0) {
+        res.status(200).json({ message: 'Запись в расписании успешно удалена' });
+      } else {
+        res.status(404).json({ error: 'Запись в расписании не найдена' });
+      }
+    }
+  });
+});
 app.get('/faculties', (req, res) => {
   pool.query('SELECT * FROM faculty', (error, results) => {
     if (error) {
