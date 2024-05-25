@@ -12,6 +12,7 @@ import 'menu/Faculty.dart';
 import 'menu/Address.dart';
 import 'menu/Professor.dart';
 import 'menu/GroupName.dart';
+import 'menu/Positions.dart';
 
 void main() {
   runApp(const MyApp());
@@ -237,6 +238,12 @@ class _MyHomePageState extends State<MyHomePage> {
                     isSelected: _selectedMenuItem == 'Группы',
                     onPressed: () => _onMenuItemSelected('Группы'),
                   ),
+                  const SizedBox(height: 10),
+                  MenuItem(
+                    title: 'Должности',
+                    isSelected: _selectedMenuItem == 'Должности',
+                    onPressed: () => _onMenuItemSelected('Должности'),
+                  ),
                   // Add more menu items
                 ],
               ),
@@ -276,7 +283,8 @@ class _MyHomePageState extends State<MyHomePage> {
         return Direction();
       case 'Группы':
         return GroupName();
-
+      case 'Должности':
+        return Positions();
       default:
         return Container();
     }

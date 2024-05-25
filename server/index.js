@@ -14,7 +14,7 @@ app.get('/', (req, res) => {
 const pool = mysql.createPool({
   host: '127.0.0.1',
   user: 'root',
-  database: 'respGlobalChange',
+  database: 'umo',
   password: '',
 });
 
@@ -513,6 +513,65 @@ app.delete('/couple_types/:id', (req, res) => {
     } else {
       console.log(`Тип пары с id ${coupleTypeId} успешно удален`);
       res.status(200).json({ message: 'Тип пары успешно удален' });
+    }
+  });
+});
+app.get('/positions', (req, res) => {
+  pool.query('SELECT * FROM positions', (error, results) => {
+    if (error) {
+      console.error('Ошибка при выполнении запроса:', error);
+      res.status(500).json({ error: 'Ошибка сервера' });
+    } else {
+      if (results && results.length > 0) {
+        res.json(results);
+      } else {
+        res.json([]);
+      }
+    }
+  });
+});
+
+app.post('/positions/insert', (req, res) => {
+  const { name } = req.body;
+  pool.query('INSERT INTO positions (name) VALUES (?)', [name], (error, results) => {
+    if (error) {
+      console.error('Ошибка при выполнении запроса:', error);
+      res.status(500).json({ error: 'Ошибка сервера' });
+    } else {
+      const newPositionId = results.insertId;
+      console.log(`Добавлена новая должность с id ${newPositionId}`);
+      res.status(201).json({ id: newPositionId, message: 'Должность успешно добавлена' });
+    }
+  });
+});
+
+app.put('/positions/update/:id', (req, res) => {
+  const id = req.params.id;
+  const { name } = req.body;
+  pool.query(
+    'UPDATE positions SET name = ? WHERE id = ?',
+    [name, id],
+    (error, results) => {
+      if (error) {
+        console.error('Ошибка при выполнении запроса:', error);
+        res.status(500).json({ error: 'Ошибка сервера' });
+      } else {
+        console.log(`Должность с id ${id} успешно отредактирована`);
+        res.status(200).json({ message: 'Должность успешно отредактирована' });
+      }
+    }
+  );
+});
+
+app.delete('/positions/:id', (req, res) => {
+  const positionId = req.params.id;
+  pool.query('DELETE FROM positions WHERE id = ?', [positionId], (error, results) => {
+    if (error) {
+      console.error('Ошибка при выполнении запроса:', error);
+      res.status(500).json({ error: 'Ошибка сервера' });
+    } else {
+      console.log(`Должность с id ${positionId} успешно удалена`);
+      res.status(200).json({ message: 'Должность успешно удалена' });
     }
   });
 });

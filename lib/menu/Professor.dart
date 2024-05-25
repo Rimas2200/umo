@@ -14,38 +14,25 @@ class _ProfessorState extends State<Professor> {
   final TextEditingController _departementController = TextEditingController();
   List<Map<String, dynamic>> professors = [];
   List<Map<String, dynamic>> filteredProfessors = [];
+  List<Map<String, dynamic>> positions = [];
+  List<Map<String, dynamic>> filteredPositions = [];
   List<Map<String, dynamic>> departaments = [];
   List<Map<String, dynamic>> filteredDepartaments = [];
   String selectedPosition = '';
   String baseUrl = '';
   int port = 0;
-
-  final List<String> positions = [
-    'Преподаватель',
-    'Ассистент',
-    'Старший преподаватель',
-    'Доцент',
-    'Профессор',
-    'Лаборант',
-    'Старший лаборант',
-    'Лаборант-исследователь',
-    'Младший научный сотрудник',
-    'Научный сотрудник',
-    'Старший научный сотрудник',
-    'Ведущий научный сотрудник',
-    'Главный научный сотрудник',
-  ];
+  Map<String, dynamic>? selectedDepartment;
 
   @override
   void initState() {
     super.initState();
     loadConfig().then((_) {
       fetchDepartaments();
+      fetchPositions();
     }).catchError((error) {
       print('Error loading configuration: $error');
     });
   }
-
 
   Future<void> loadConfig() async {
     try {
@@ -56,6 +43,25 @@ class _ProfessorState extends State<Professor> {
       fetchProfessors();
     } catch (e) {
       print('Ошибка при загрузке конфигурационного файла: $e');
+    }
+  }
+  Future<void> fetchPositions() async {
+    final response = await http.get(Uri.parse('$baseUrl:$port/positions'));
+    if (response.statusCode == 200) {
+      final List<dynamic> data = json.decode(response.body);
+      List<Map<String, dynamic>> positionsArray = [];
+      data.forEach((position) {
+        positionsArray.add({
+          'id': position['id'] as int,
+          'name': position['name'] as String,
+        });
+      });
+      setState(() {
+        positions = positionsArray;
+        filteredPositions = positionsArray;
+      });
+    } else {
+      throw Exception('Failed to load positions');
     }
   }
   Future<void> fetchDepartaments() async {
@@ -153,9 +159,10 @@ class _ProfessorState extends State<Professor> {
         'first_name': firstName,
         'middle_name': middleName,
         'position': position,
-        'departement': departement,
+        'departement': selectedDepartment != null ? selectedDepartment!['name'] : departement,
       }),
     );
+
     if (response.statusCode == 200) {
       int index = filteredProfessors.indexWhere((professor) => professor['id'] == id);
       if (index != -1) {
@@ -189,6 +196,14 @@ class _ProfessorState extends State<Professor> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Преподаватели'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () {
+              fetchProfessors();
+            },
+          ),
+        ],
       ),
       body: Column(
         children: [
@@ -238,10 +253,10 @@ class _ProfessorState extends State<Professor> {
                                 ),
                                 DropdownButtonFormField<String>(
                                   value: selectedPosition.isEmpty ? null : selectedPosition,
-                                  items: positions.map((String position) {
+                                  items: positions.map((Map<String, dynamic> position) {
                                     return DropdownMenuItem<String>(
-                                      value: position,
-                                      child: Text(position),
+                                      value: position['name'] as String,
+                                      child: Text(position['name'] as String),
                                     );
                                   }).toList(),
                                   onChanged: (newValue) {
@@ -253,6 +268,7 @@ class _ProfessorState extends State<Professor> {
                                     labelText: 'Должность',
                                   ),
                                 ),
+
                                 DropdownButtonFormField<Map<String, dynamic>>(
                                   value: null,
                                   items: filteredDepartaments.map((Map<String, dynamic> departament) {
@@ -262,7 +278,6 @@ class _ProfessorState extends State<Professor> {
                                     );
                                   }).toList(),
                                   onChanged: (newValue) {
-                                    // Устанавливаем выбранное значение в кафедру
                                     _departementController.text = newValue!['name'] as String;
                                   },
                                   decoration: const InputDecoration(
@@ -357,14 +372,37 @@ class _ProfessorState extends State<Professor> {
                                           labelText: 'Отчество',
                                         ),
                                       ),
-                                      TextField(
-                                        controller: positionController,
+                                      DropdownButtonFormField<String>(
+                                        value: null,
+                                        items: positions.map((Map<String, dynamic> position) {
+                                          return DropdownMenuItem<String>(
+                                            value: position['name'] as String,
+                                            child: Text(position['name'] as String),
+                                          );
+                                        }).toList(),
+                                        onChanged: (newValue) {
+                                          setState(() {
+                                            positionController.text = newValue!;
+                                          });
+                                        },
                                         decoration: const InputDecoration(
                                           labelText: 'Должность',
                                         ),
                                       ),
-                                      TextField(
-                                        controller: departementController,
+                                      DropdownButtonFormField<Map<String, dynamic>>(
+                                        value: null,
+                                        items: filteredDepartaments.map((Map<String, dynamic> departament) {
+                                          return DropdownMenuItem<Map<String, dynamic>>(
+                                            value: departament,
+                                            child: Text(departament['name'] as String),
+                                          );
+                                        }).toList(),
+                                        onChanged: (newValue) {
+                                          setState(() {
+                                            selectedDepartment = newValue;
+                                            _departementController.text = newValue!['name'] as String;
+                                          });
+                                        },
                                         decoration: const InputDecoration(
                                           labelText: 'Кафедра',
                                         ),

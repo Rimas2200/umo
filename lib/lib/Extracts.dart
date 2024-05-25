@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+
 class Extracts extends StatefulWidget {
   @override
   _ExtractsState createState() => _ExtractsState();
@@ -18,20 +19,24 @@ class _ExtractsState extends State<Extracts> {
   void initState() {
     super.initState();
     fetchDepartments();
-
   }
+
   Future<Map<String, dynamic>> _loadConfig() async {
-    final String jsonString = await DefaultAssetBundle.of(context).loadString('assets/config.json');
+    final String jsonString =
+    await DefaultAssetBundle.of(context).loadString('assets/config.json');
     return jsonDecode(jsonString);
   }
+
   Future<void> fetchDepartments() async {
     try {
       final config = await _loadConfig();
-      final response = await http.get(Uri.parse('${config['baseUrl']}:${config['port']}/departament'));
+      final response = await http
+          .get(Uri.parse('${config['baseUrl']}:${config['port']}/departament'));
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
         setState(() {
-          _departments = data.map((item) => item['name'] as String).toList();
+          _departments =
+              data.map((item) => item['name'] as String).toList();
         });
       } else {
         throw Exception('Failed to load departments');
@@ -44,11 +49,13 @@ class _ExtractsState extends State<Extracts> {
   Future<void> fetchProfessors(String department) async {
     try {
       final config = await _loadConfig();
-      final response = await http.get(Uri.parse('${config['baseUrl']}:${config['port']}/professor/$department'));
+      final response = await http.get(Uri.parse(
+          '${config['baseUrl']}:${config['port']}/professor/$department'));
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
         setState(() {
-          _professors = data.map((item) => item['name'] as String).toList();
+          _professors =
+              data.map((item) => item['name'] as String).toList();
         });
       } else {
         throw Exception('Failed to load professors');
@@ -64,7 +71,8 @@ class _ExtractsState extends State<Extracts> {
     });
     try {
       final config = await _loadConfig();
-      final response = await http.get(Uri.parse('${config['baseUrl']}:${config['port']}/schedule/extracts/teacher?teacher_name=$teacherName'));
+      final response = await http.get(Uri.parse(
+          '${config['baseUrl']}:${config['port']}/schedule/extracts/teacher?teacher_name=$teacherName'));
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
         setState(() {
@@ -106,55 +114,67 @@ class _ExtractsState extends State<Extracts> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Expanded(
-                  child: DropdownButton<String>(
-                    hint: const Text('Выберите кафедру'),
-                    value: selectedDepartment,
-                    isExpanded: true,
-                    onChanged: (String? newValue) {
-                      setState(() {
-                        selectedDepartment = newValue;
-                        selectedTeacher = null;
-                        _professors = [];
-                        if (newValue != null) {
-                          fetchProfessors(newValue);
-                        }
-                      });
-                    },
-                    items: _departments.map<DropdownMenuItem<String>>((String value) {
-                      return DropdownMenuItem<String>(
-                        value: value,
-                        child: Text(value),
-                      );
-                    }).toList(),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Выберите кафедру:'),
+                      Autocomplete<String>(
+                        optionsBuilder: (TextEditingValue textEditingValue) {
+                          if (textEditingValue.text.isEmpty) {
+                            return const Iterable<String>.empty();
+                          }
+                          return _departments.where((String option) {
+                            return option.toLowerCase().contains(
+                              textEditingValue.text.toLowerCase(),
+                            );
+                          });
+                        },
+                        onSelected: (String value) {
+                          setState(() {
+                            selectedDepartment = value;
+                            selectedTeacher = null;
+                            _professors = [];
+                            fetchProfessors(value);
+                          });
+                        },
+                      ),
+                    ],
                   ),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
-                  child: DropdownButton<String>(
-                    hint: const Text('Выберите преподавателя'),
-                    value: selectedTeacher,
-                    isExpanded: true,
-                    onChanged: (String? newValue) {
-                      setState(() {
-                        selectedTeacher = newValue;
-                        if (newValue != null) {
-                          fetchSchedule(newValue);
-                        }
-                      });
-                    },
-                    items: _professors.map<DropdownMenuItem<String>>((String value) {
-                      return DropdownMenuItem<String>(
-                        value: value,
-                        child: Text(value),
-                      );
-                    }).toList(),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Выберите преподавателя:'),
+                      Autocomplete<String>(
+                        optionsBuilder: (TextEditingValue textEditingValue) {
+                          if (textEditingValue.text.isEmpty) {
+                            return const Iterable<String>.empty();
+                          }
+                          return _professors.where((String option) {
+                            return option.toLowerCase().contains(
+                              textEditingValue.text.toLowerCase(),
+                            );
+                          });
+                        },
+                        onSelected: (String value) {
+                          setState(() {
+                            selectedTeacher = value;
+                            if (value.isNotEmpty) {
+                              fetchSchedule(value);
+                            }
+                          });
+                        },
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
+
             const SizedBox(height: 20),
             Table(
               border: TableBorder.all(),
