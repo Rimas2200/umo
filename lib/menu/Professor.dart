@@ -45,6 +45,7 @@ class _ProfessorState extends State<Professor> {
       print('Ошибка при загрузке конфигурационного файла: $e');
     }
   }
+
   Future<void> fetchPositions() async {
     final response = await http.get(Uri.parse('$baseUrl:$port/positions'));
     if (response.statusCode == 200) {
@@ -64,6 +65,7 @@ class _ProfessorState extends State<Professor> {
       throw Exception('Failed to load positions');
     }
   }
+
   Future<void> fetchDepartaments() async {
     final response = await http.get(Uri.parse('$baseUrl:$port/departaments'));
     if (response.statusCode == 200) {
@@ -84,6 +86,7 @@ class _ProfessorState extends State<Professor> {
       throw Exception('Failed to load departaments');
     }
   }
+
   Future<void> _addProfessor() async {
     final String lastName = _lastNameController.text;
     final String firstName = _firstNameController.text;
@@ -278,7 +281,9 @@ class _ProfessorState extends State<Professor> {
                                     );
                                   }).toList(),
                                   onChanged: (newValue) {
-                                    _departementController.text = newValue!['name'] as String;
+                                    setState(() {
+                                      _departementController.text = newValue!['name'] as String;
+                                    });
                                   },
                                   decoration: const InputDecoration(
                                     labelText: 'Кафедра',
@@ -349,89 +354,93 @@ class _ProfessorState extends State<Professor> {
                               TextEditingController positionController = TextEditingController(text: position);
                               TextEditingController departementController = TextEditingController(text: departement);
 
-                              return AlertDialog(
-                                title: const Text('Редактировать преподавателя'),
-                                content: SingleChildScrollView(
-                                  child: Column(
-                                    children: [
-                                      TextField(
-                                        controller: lastNameController,
-                                        decoration: const InputDecoration(
-                                          labelText: 'Фамилия',
+                              return StatefulBuilder(
+                                  builder: (context, setState) {
+                                    return AlertDialog(
+                                      title: const Text('Редактировать преподавателя'),
+                                      content: SingleChildScrollView(
+                                        child: Column(
+                                          children: [
+                                            TextField(
+                                              controller: lastNameController,
+                                              decoration: const InputDecoration(
+                                                labelText: 'Фамилия',
+                                              ),
+                                            ),
+                                            TextField(
+                                              controller: firstNameController,
+                                              decoration: const InputDecoration(
+                                                labelText: 'Имя',
+                                              ),
+                                            ),
+                                            TextField(
+                                              controller: middleNameController,
+                                              decoration: const InputDecoration(
+                                                labelText: 'Отчество',
+                                              ),
+                                            ),
+                                            DropdownButtonFormField<String>(
+                                              value: null,
+                                              items: positions.map((Map<String, dynamic> position) {
+                                                return DropdownMenuItem<String>(
+                                                  value: position['name'] as String,
+                                                  child: Text(position['name'] as String),
+                                                );
+                                              }).toList(),
+                                              onChanged: (newValue) {
+                                                setState(() {
+                                                  positionController.text = newValue!;
+                                                });
+                                              },
+                                              decoration: const InputDecoration(
+                                                labelText: 'Должность',
+                                              ),
+                                            ),
+                                            DropdownButtonFormField<Map<String, dynamic>>(
+                                              value: null,
+                                              items: filteredDepartaments.map((Map<String, dynamic> departament) {
+                                                return DropdownMenuItem<Map<String, dynamic>>(
+                                                  value: departament,
+                                                  child: Text(departament['name'] as String),
+                                                );
+                                              }).toList(),
+                                              onChanged: (newValue) {
+                                                setState(() {
+                                                  selectedDepartment = newValue;
+                                                  departementController.text = newValue!['name'] as String;
+                                                });
+                                              },
+                                              decoration: const InputDecoration(
+                                                labelText: 'Кафедра',
+                                              ),
+                                            ),
+                                          ],
                                         ),
                                       ),
-                                      TextField(
-                                        controller: firstNameController,
-                                        decoration: const InputDecoration(
-                                          labelText: 'Имя',
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () {
+                                            Navigator.of(context).pop();
+                                          },
+                                          child: const Text('Отмена'),
                                         ),
-                                      ),
-                                      TextField(
-                                        controller: middleNameController,
-                                        decoration: const InputDecoration(
-                                          labelText: 'Отчество',
+                                        ElevatedButton(
+                                          onPressed: () {
+                                            updateProfessor(
+                                              filteredProfessors[index]['id'],
+                                              lastNameController.text,
+                                              firstNameController.text,
+                                              middleNameController.text,
+                                              positionController.text,
+                                              departementController.text,
+                                            );
+                                            Navigator.of(context).pop();
+                                          },
+                                          child: const Text('Сохранить'),
                                         ),
-                                      ),
-                                      DropdownButtonFormField<String>(
-                                        value: null,
-                                        items: positions.map((Map<String, dynamic> position) {
-                                          return DropdownMenuItem<String>(
-                                            value: position['name'] as String,
-                                            child: Text(position['name'] as String),
-                                          );
-                                        }).toList(),
-                                        onChanged: (newValue) {
-                                          setState(() {
-                                            positionController.text = newValue!;
-                                          });
-                                        },
-                                        decoration: const InputDecoration(
-                                          labelText: 'Должность',
-                                        ),
-                                      ),
-                                      DropdownButtonFormField<Map<String, dynamic>>(
-                                        value: null,
-                                        items: filteredDepartaments.map((Map<String, dynamic> departament) {
-                                          return DropdownMenuItem<Map<String, dynamic>>(
-                                            value: departament,
-                                            child: Text(departament['name'] as String),
-                                          );
-                                        }).toList(),
-                                        onChanged: (newValue) {
-                                          setState(() {
-                                            selectedDepartment = newValue;
-                                            _departementController.text = newValue!['name'] as String;
-                                          });
-                                        },
-                                        decoration: const InputDecoration(
-                                          labelText: 'Кафедра',
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () {
-                                      Navigator.of(context).pop();
-                                    },
-                                    child: const Text('Отмена'),
-                                  ),
-                                  ElevatedButton(
-                                    onPressed: () {
-                                      updateProfessor(
-                                        filteredProfessors[index]['id'],
-                                        lastNameController.text,
-                                        firstNameController.text,
-                                        middleNameController.text,
-                                        positionController.text,
-                                        departementController.text,
-                                      );
-                                      Navigator.of(context).pop();
-                                    },
-                                    child: const Text('Сохранить'),
-                                  ),
-                                ],
+                                      ],
+                                    );
+                                  }
                               );
                             },
                           );
