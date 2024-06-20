@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:logger/logger.dart';
 
 class TimetableGroup extends StatefulWidget {
   final String selectedGroup;
   final List<String> directions;
+
 
   const TimetableGroup({Key? key, required this.selectedGroup, required this.directions}) : super(key: key);
 
@@ -15,7 +17,7 @@ class TimetableGroup extends StatefulWidget {
 class _TimetableGroupState extends State<TimetableGroup> {
   late Future<List<Map<String, dynamic>>> _futureGroupSchedule;
   List<String> _groups = [];
-
+  var logger = Logger();
   final ScrollController _scrollController = ScrollController();
 
   @override
@@ -41,7 +43,7 @@ class _TimetableGroupState extends State<TimetableGroup> {
       final response = await http.get(Uri.parse('${config['baseUrl']}:${config['port']}/group_name/$directionId'));
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
-        print(data);
+        logger.i(data);
         if (data.isNotEmpty) {
           setState(() {
             _groups = data.map((item) => item['name'] as String).toList();
@@ -51,7 +53,7 @@ class _TimetableGroupState extends State<TimetableGroup> {
         throw Exception('Failed to load groups: ${response.statusCode}');
       }
     } catch (error) {
-      print('Error fetching groups: $error');
+      logger.e('Error fetching groups: $error');
     }
   }
 
@@ -88,9 +90,30 @@ class _TimetableGroupState extends State<TimetableGroup> {
         throw Exception('Failed to delete schedule item: ${response.statusCode}');
       }
     } catch (error) {
-      print('Error deleting schedule item: $error');
+      logger.e('Error deleting schedule item: $error');
     }
   }
+
+  Future<void> updateScheduleItem(String id, Map<String, dynamic> updatedItem) async {
+    try {
+      final config = await _loadConfig();
+      final response = await http.put(
+        Uri.parse('${config['baseUrl']}:${config['port']}/schedule/update/$id'),
+        headers: {'Content-Type': 'application/json; charset=UTF-8'},
+        body: jsonEncode(updatedItem),
+      );
+      if (response.statusCode == 200) {
+        setState(() {
+          _futureGroupSchedule = fetchGroupSchedule(widget.selectedGroup);
+        });
+      } else {
+        throw Exception('Failed to update schedule item: ${response.statusCode}');
+      }
+    } catch (error) {
+      logger.e('Error updating schedule item: $error');
+    }
+  }
+
 
   void _onRefreshPressed() {
     setState(() {
@@ -311,6 +334,11 @@ class _TimetableGroupState extends State<TimetableGroup> {
   }
 
   Widget _buildScheduleItem(Map<String, dynamic> item, TextAlign textAlign) {
+    TextEditingController disciplineController = TextEditingController(text: item['discipline']);
+    TextEditingController weekController = TextEditingController(text: item['week']);
+    TextEditingController classroomController = TextEditingController(text: item['classroom']);
+    TextEditingController teacherNameController = TextEditingController(text: item['teacher_name']);
+
     return Column(
       crossAxisAlignment: textAlign == TextAlign.center ? CrossAxisAlignment.center :
       textAlign == TextAlign.end ? CrossAxisAlignment.end : CrossAxisAlignment.start,
@@ -332,6 +360,81 @@ class _TimetableGroupState extends State<TimetableGroup> {
                             await deleteScheduleItem(item['id'].toString());
                           },
                           tooltip: 'Удалить запись:${item['discipline']}',
+                          iconSize: 20.0,
+                          constraints: const BoxConstraints.tightFor(
+                            width: 28.0,
+                            height: 28.0,
+                          ),
+                        ),
+                      ),
+                    ),
+                    WidgetSpan(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 0.0),
+                        child: IconButton(
+                          icon: const Icon(Icons.edit, color: Color.fromARGB(128, 12, 12, 12)),
+                          onPressed: () {
+                            showDialog(
+                              context: context,
+                              builder: (BuildContext context) {
+                                return AlertDialog(
+                                  title: const Text('Редактировать расписание'),
+                                  content: SingleChildScrollView(
+                                    child: Column(
+                                      children: [
+                                        TextField(
+                                          controller: disciplineController,
+                                          decoration: const InputDecoration(
+                                            labelText: 'Дисциплина',
+                                          ),
+                                        ),
+                                        TextField(
+                                          controller: weekController,
+                                          decoration: const InputDecoration(
+                                            labelText: 'Неделя',
+                                          ),
+                                        ),
+                                        TextField(
+                                          controller: classroomController,
+                                          decoration: const InputDecoration(
+                                            labelText: 'Аудитория',
+                                          ),
+                                        ),
+                                        TextField(
+                                          controller: teacherNameController,
+                                          decoration: const InputDecoration(
+                                            labelText: 'Преподаватель',
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () {
+                                        Navigator.of(context).pop();
+                                      },
+                                      child: const Text('Отмена'),
+                                    ),
+                                    ElevatedButton(
+                                      onPressed: () async {
+                                        await updateScheduleItem(item['id'].toString(), {
+                                          'discipline': disciplineController.text,
+                                          'week': weekController.text,
+                                          'classroom': classroomController.text,
+                                          'teacher_name': teacherNameController.text,
+                                        });
+                                        // ignore: use_build_context_synchronously
+                                        Navigator.of(context).pop();
+                                      },
+                                      child: const Text('Сохранить'),
+                                    ),
+                                  ],
+                                );
+                              },
+                            );
+                          },
+                          tooltip: 'Редактирование записи:${item['discipline']}',
                           iconSize: 20.0,
                           constraints: const BoxConstraints.tightFor(
                             width: 28.0,
@@ -379,6 +482,7 @@ class _TimetableGroupState extends State<TimetableGroup> {
       ],
     );
   }
+
   double _calculateGroupWidth(String groupName) {
     final textWidth = TextPainter(
       text: TextSpan(text: groupName, style: const TextStyle(fontSize: 20.0, fontWeight: FontWeight.bold)),

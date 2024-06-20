@@ -21,6 +21,25 @@ const pool = mysql.createPool({
 app.use(express.json());
 app.use(cors());
 
+app.put('/schedule/update/:id', (req, res) => {
+  const id = req.params.id;
+  const { discipline, week, classroom, teacher_name } = req.body;
+
+  pool.query(
+    'UPDATE schedule SET discipline = ?, week = ?, classroom = ?, teacher_name = ? WHERE id = ?',
+    [discipline, week, classroom, teacher_name, id],
+    (error, results) => {
+      if (error) {
+        console.error('Ошибка при выполнении запроса:', error);
+        res.status(500).json({ error: 'Ошибка сервера' });
+      } else {
+        console.log(Расписание с id ${id} успешно отредактировано);
+        res.status(200).json({ message: 'Расписание успешно отредактировано' });
+      }
+    }
+  );
+});
+
 app.get('/schedule/:classroom', (req, res) => {
   const classroom = req.params.classroom;
 
