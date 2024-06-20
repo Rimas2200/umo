@@ -21,6 +21,36 @@ const pool = mysql.createPool({
 app.use(express.json());
 app.use(cors());
 
+app.get('/schedule/:classroom', (req, res) => {
+  const classroom = req.params.classroom;
+
+  if (!classroom) {
+    return res.status(400).json({ error: 'Отсутствует параметр classroom' });
+  }
+
+  const query = `
+    SELECT group_name, pair_name, day_of_the_week, week
+    FROM schedule
+    WHERE classroom = ?
+  `;
+
+  pool.query(query, [classroom], (error, results) => {
+    if (error) {
+      console.error('Ошибка при выполнении запроса:', error);
+      return res.status(500).json({ error: 'Ошибка сервера' });
+    }
+
+    if (results.length > 0) {
+      console.log(`Найдено ${results.length} записей для classroom: ${classroom}`);
+      return res.json(results);
+    } else {
+      console.log(`Записей не найдено для classroom: ${classroom}`);
+      return res.json([]);
+    }
+  });
+});
+
+
 app.post('/timetable', async (req, res) => {
   const { discipline, classroom, group_name, pair_name, teacher_name, day_of_the_week, week, subgroup } = req.body;
   console.log(req.body);
@@ -115,6 +145,10 @@ app.get('/discipline', (req, res) => {
     }
   });
 });
+
+
+
+
 app.get('/couple_type', (req, res) => {
   pool.query('SELECT * FROM couple_type', (error, results) => {
     if (error) {

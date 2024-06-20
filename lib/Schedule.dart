@@ -204,55 +204,55 @@ class _ScheduleState extends State<Schedule> {
                     });
                   },
                 ),
-                IconButton(
-                  icon: const Tooltip(
-                    message: 'Добавить группу',
-                    child: Icon(Icons.add),
-                  ),
-                  onPressed: () {
-                    showDialog(
-                      context: context,
-                      builder: (BuildContext context) {
-                        return AlertDialog(
-                          title: const Text('Добавить группу'),
-                          content: SingleChildScrollView(
-                            child: Column(
-                              children: [
-                                TextField(
-                                  controller: _groupNameController,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Название группы',
-                                  ),
-                                ),
-                                TextField(
-                                  controller: _directionAbbreviationController,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Аббревиатура направления',
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          actions: [
-                            TextButton(
-                              onPressed: () {
-                                Navigator.of(context).pop(false);
-                              },
-                              child: const Text('Отмена'),
-                            ),
-                            ElevatedButton(
-                              onPressed: () {
-                                _addGroupName();
-                                Navigator.of(context).pop(true);
-                              },
-                              child: const Text('Добавить'),
-                            ),
-                          ],
-                        );
-                      },
-                    );
-                  },
-                ),
+                // IconButton(
+                //   icon: const Tooltip(
+                //     message: 'Добавить группу',
+                //     child: Icon(Icons.add),
+                //   ),
+                //   onPressed: () {
+                //     showDialog(
+                //       context: context,
+                //       builder: (BuildContext context) {
+                //         return AlertDialog(
+                //           title: const Text('Добавить группу'),
+                //           content: SingleChildScrollView(
+                //             child: Column(
+                //               children: [
+                //                 TextField(
+                //                   controller: _groupNameController,
+                //                   decoration: const InputDecoration(
+                //                     labelText: 'Название группы',
+                //                   ),
+                //                 ),
+                //                 TextField(
+                //                   controller: _directionAbbreviationController,
+                //                   decoration: const InputDecoration(
+                //                     labelText: 'Аббревиатура направления',
+                //                   ),
+                //                 ),
+                //               ],
+                //             ),
+                //           ),
+                //           actions: [
+                //             TextButton(
+                //               onPressed: () {
+                //                 Navigator.of(context).pop(false);
+                //               },
+                //               child: const Text('Отмена'),
+                //             ),
+                //             ElevatedButton(
+                //               onPressed: () {
+                //                 _addGroupName();
+                //                 Navigator.of(context).pop(true);
+                //               },
+                //               child: const Text('Добавить'),
+                //             ),
+                //           ],
+                //         );
+                //       },
+                //     );
+                //   },
+                // ),
               ],
             ),
           ),
