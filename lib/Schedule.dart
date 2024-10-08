@@ -467,7 +467,7 @@ class _DayAccordionState extends State<DayAccordion> {
   List<String> _address = [];
   var logger = Logger();
   final List<String> _pair_name = ['', '1', '2', '3', '4', '5', '6', '7', '8'];
-  final List<String> _pair_time = ['', '10:00', '11:00', '12:00'];
+  final List<String> _pair_time = ['17:05 - 18:40', '18:45 - 20:30' ];
   late String _baseUrl;
   late int _port;
 
@@ -690,25 +690,46 @@ class _DayAccordionState extends State<DayAccordion> {
                                                 ),
                                               ),
                                               const SizedBox(width: 5),
+                                              // Expanded(
+                                              //   flex: 2,
+                                              //   child: DropdownButtonFormField<String>(
+                                              //     value: item.pair_time,
+                                              //     decoration: const InputDecoration(
+                                              //       contentPadding: EdgeInsets.symmetric(vertical: 16.0),
+                                              //       hintText: 'Время',
+                                              //     ),
+                                              //     onChanged: (newValue) {
+                                              //       setState(() {
+                                              //         item.pair_time = newValue!;
+                                              //       });
+                                              //     },
+                                              //     items: _pair_time.map((pairName) {
+                                              //       return DropdownMenuItem<String>(
+                                              //         value: pairName,
+                                              //         child: Text(pairName),
+                                              //       );
+                                              //     }).toList(),
+                                              //   ),
+                                              // ),
                                               Expanded(
                                                 flex: 2,
-                                                child: DropdownButtonFormField<String>(
-                                                  value: item.pair_time,
+                                                child: TextFormField(
+                                                  initialValue: item.pair_time,
                                                   decoration: const InputDecoration(
                                                     contentPadding: EdgeInsets.symmetric(vertical: 16.0),
-                                                    hintText: 'Время',
+                                                    hintText: 'Введите время (17:05 - 18:40)',
                                                   ),
                                                   onChanged: (newValue) {
                                                     setState(() {
-                                                      item.pair_time = newValue!;
+                                                      item.pair_time = newValue;
                                                     });
                                                   },
-                                                  items: _pair_time.map((pairName) {
-                                                    return DropdownMenuItem<String>(
-                                                      value: pairName,
-                                                      child: Text(pairName),
-                                                    );
-                                                  }).toList(),
+                                                  validator: (value) {
+                                                    if (value == null || !RegExp(r'^\d{2}:\d{2} - \d{2}:\d{2}$').hasMatch(value)) {
+                                                      return 'Введите время в формате чч:мм - чч:мм';
+                                                    }
+                                                    return null;
+                                                  },
                                                 ),
                                               ),
                                               const SizedBox(width: 5),
@@ -1052,145 +1073,161 @@ class _DayAccordionState extends State<DayAccordion> {
     );
   }
   void _showWeekRangeDialog(BuildContext context, Function(String) callback) {
-    List<bool> isSelected = List.generate(18, (_) => false);
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return StatefulBuilder(
-          builder: (BuildContext context, setState) {
-            return AlertDialog(
-              title: const Text('Выберите диапазон недели'),
-              content: SizedBox(
-                width: 450,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    GridView.count(
-                      crossAxisCount: 6,
-                      shrinkWrap: true,
-                      children: List.generate(18, (index) {
-                        return Padding(
-                          padding: const EdgeInsets.all(3.0),
-                          child: ElevatedButton(
-                            onPressed: () {
-                              setState(() {
-                                isSelected[index] = !isSelected[index];
-                              });
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: isSelected[index] ? Colors.blue : Colors.white,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16.0),
-                              ),
-                            ),
-                            child: Text(
-                              '${index + 1}',
-                              style: const TextStyle(fontSize: 18),
+  List<bool> isSelected = List.generate(18, (_) => false);
+  showDialog(
+    context: context,
+    builder: (BuildContext context) {
+      return StatefulBuilder(
+        builder: (BuildContext context, setState) {
+          return AlertDialog(
+            title: const Text('Выберите диапазон недели'),
+            content: SizedBox(
+              width: 450,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  GridView.count(
+                    crossAxisCount: 6,
+                    shrinkWrap: true,
+                    children: List.generate(18, (index) {
+                      return Padding(
+                        padding: const EdgeInsets.all(3.0),
+                        child: ElevatedButton(
+                          onPressed: () {
+                            setState(() {
+                              isSelected[index] = !isSelected[index];
+                            });
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: isSelected[index] ? Colors.blue : Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16.0),
                             ),
                           ),
-                        );
-                      }),
+                          child: Text(
+                            '${index + 1}',
+                            style: const TextStyle(fontSize: 18),
+                          ),
+                        ),
+                      );
+                    }),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8.0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        ElevatedButton(
+                          onPressed: () {
+                            setState(() {
+                              for (int i = 0; i < isSelected.length; i++) {
+                                isSelected[i] = (i + 1) % 2 != 0;
+                              }
+                            });
+                          },
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
+                            backgroundColor: Colors.blue,
+                          ),
+                          child: const Text('1Н', style: TextStyle(color: Colors.white, fontSize: 18)),
+                        ),
+                        ElevatedButton(
+                          onPressed: () {
+                            setState(() {
+                              for (int i = 0; i < isSelected.length; i++) {
+                                isSelected[i] = (i + 1) % 2 == 0;
+                              }
+                            });
+                          },
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
+                            backgroundColor: Colors.blue,
+                          ),
+                          child: const Text('2Н', style: TextStyle(color: Colors.white, fontSize: 18)),
+                        ),
+                        ElevatedButton(
+                          onPressed: () {
+                            setState(() {
+                              for (int i = 0; i < isSelected.length; i++) {
+                                isSelected[i] = true;
+                              }
+                            });
+                          },
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 29, vertical: 20),
+                            backgroundColor: Colors.blue,
+                          ),
+                          child: const Text('Все', style: TextStyle(color: Colors.white, fontSize: 18)),
+                        ),
+                        ElevatedButton(
+                          onPressed: () {
+                            setState(() {
+                              for (int i = 0; i < isSelected.length; i++) {
+                                isSelected[i] = false;
+                              }
+                            });
+                          },
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+                            backgroundColor: Colors.blue,
+                          ),
+                          child: const Text('Сброс', style: TextStyle(color: Colors.white, fontSize: 18)),
+                        ),
+                      ],
                     ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8.0),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          ElevatedButton(
-                            onPressed: () {
-                              setState(() {
-                                for (int i = 0; i < isSelected.length; i++) {
-                                  isSelected[i] = (i + 1) % 2 != 0;
-                                }
-                              });
-                            },
-                            style: ElevatedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20), backgroundColor: Colors.blue,
-                              // elevation: 5,
-                            ),
-                            child: const Text('1Н', style: TextStyle(color: Colors.white, fontSize: 18)),
-                          ),
-
-                          ElevatedButton(
-                            onPressed: () {
-                              setState(() {
-                                for (int i = 0; i < isSelected.length; i++) {
-                                  isSelected[i] = (i + 1) % 2 == 0;
-                                }
-                              });
-                            },
-                            style: ElevatedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20), backgroundColor: Colors.blue,
-                              // elevation: 5,
-                            ),
-                            child: const Text('2Н', style: TextStyle(color: Colors.white, fontSize: 18)),
-                          ),
-                          ElevatedButton(
-                            onPressed: () {
-                              setState(() {
-                                for (int i = 0; i < isSelected.length; i++) {
-                                  isSelected[i] = true;
-                                }
-                              });
-                            },
-                            style: ElevatedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(horizontal: 29, vertical: 20), backgroundColor: Colors.blue,
-                              // elevation: 5,
-                            ),
-                            child: const Text('Все', style: TextStyle(color: Colors.white, fontSize: 18)),
-                          ),
-                          ElevatedButton(
-                            onPressed: () {
-                              setState(() {
-                                for (int i = 0; i < isSelected.length; i++) {
-                                  isSelected[i] = false;
-                                }
-                              });
-                            },
-                            style: ElevatedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20), backgroundColor: Colors.blue,
-                              // elevation: 5,
-                            ),
-                            child: const Text('Сброс', style: TextStyle(color: Colors.white, fontSize: 18)),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-              actions: <Widget>[
-                TextButton(
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                  },
-                  child: const Text('Отмена'),
-                ),
-                TextButton(
-                  onPressed: () {
-                    _applySelection(isSelected, callback);
-                    Navigator.of(context).pop();
-                  },
-                  child: const Text('Применить'),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
+            ),
+            actions: <Widget>[
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+                child: const Text('Отмена'),
+              ),
+              TextButton(
+                onPressed: () {
+                  _applySelection(isSelected, callback);
+                  Navigator.of(context).pop();
+                },
+                child: const Text('Применить'),
+              ),
+            ],
+          );
+        },
+      );
+    },
+  );
+}
+
+void _applySelection(List<bool> isSelected, Function(String) callback) {
+  bool isOddSelected = true;
+  bool isEvenSelected = true;
+
+  for (int i = 0; i < isSelected.length; i++) {
+    if ((i + 1) % 2 != 0 && !isSelected[i]) {
+      isOddSelected = false;
+    }
+    if ((i + 1) % 2 == 0 && !isSelected[i]) {
+      isEvenSelected = false;
+    }
   }
 
-  void _applySelection(List<bool> isSelected, Function(String) callback) {
-    String selectedNumbers = '';
-    for (int i = 0; i < isSelected.length; i++) {
-      if (isSelected[i]) {
-        selectedNumbers += '${i + 1} ';
-      }
-    }
-    callback(selectedNumbers);
+  String result;
+  if (isOddSelected && isEvenSelected) {
+    result = "все";
+  } else if (isOddSelected && !isEvenSelected) {
+    result = "1";
+  } else if (isEvenSelected && !isOddSelected) {
+    result = "2";
+  } else {
+    result = "все";
   }
+  callback(result);
+}
+
 
   void callback(String newValue) {
     setState(() {
@@ -1204,7 +1241,6 @@ class _DayAccordionState extends State<DayAccordion> {
     });
   }
 }
-
 
 
 

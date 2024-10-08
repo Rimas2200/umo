@@ -57,24 +57,27 @@ class _TimetableGroupState extends State<TimetableGroup> {
     }
   }
 
-  Future<List<Map<String, dynamic>>> fetchGroupSchedule(String groupName) async {
-    try {
-      final config = await _loadConfig();
-      final response = await http.get(Uri.parse('${config['baseUrl']}:${config['port']}/schedule/group?group_name=$groupName'));
-      if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        if (data.isNotEmpty) {
-          return data.map((item) => item as Map<String, dynamic>).toList();
-        } else {
-          return [];
-        }
+Future<List<Map<String, dynamic>>> fetchGroupSchedule(String groupName) async {
+  try {
+    final config = await _loadConfig();
+    final response = await http.get(Uri.parse('${config['baseUrl']}:${config['port']}/schedule/group/$groupName'));
+    if (response.statusCode == 200) {
+      final List<dynamic> data = jsonDecode(response.body);
+      if (data.isNotEmpty) {
+        return data.map((item) => item as Map<String, dynamic>).toList();
       } else {
-        throw Exception('Failed to load group schedule: ${response.statusCode}');
+        return [];
       }
-    } catch (error) {
-      throw Exception('Error fetching group schedule: $error');
+    } else if (response.statusCode == 404) {
+      throw Exception('Group schedule not found');
+    } else {
+      throw Exception('Failed to load group schedule: ${response.statusCode}');
     }
+  } catch (error) {
+    throw Exception('Error fetching group schedule: $error');
   }
+}
+
 
   Future<void> deleteScheduleItem(String id) async {
     try {
@@ -171,173 +174,310 @@ class _TimetableGroupState extends State<TimetableGroup> {
     );
   }
 
-  Widget _buildGroupColumns() {
-    final groupListViewScrollController = ScrollController();
+// Время проведения пар по номерам
+final Map<int, String> lessonTimes = {
+  1: '08:00 - 09:30',
+  2: '09:40 - 11:10',
+  3: '11:20 - 12:50',
+  4: '13:15 - 14:45',
+  5: '15:00 - 16:30',
+  6: '16:40 - 18:10',
+  7: '18:20 - 19:50',
+  8: '19:55 - 21:25',
+};
 
-    return Scrollbar(
-      interactive: true,
+// Получаем время проведения пары по её номеру
+String _getLessonTime(int? pairNumber) {
+  if (pairNumber != null && lessonTimes.containsKey(pairNumber)) {
+    return lessonTimes[pairNumber]!; // Возвращает время в формате "чч:мм - чч:мм"
+  }
+  return '';
+}
+
+// Функция для парсинга времени (например, "18:00 - 19:01") в минуты с начала дня
+int _parseTime(String time) {
+  final regex = RegExp(r'-');
+  final timeParts = time.split(regex);
+
+  // if (timeParts.length != 2) {
+  //   throw FormatException('Некорректный формат времени: $time');
+  // }
+
+  final startTime = timeParts[0].trim(); // Время начала
+  final startTimeValues = startTime.split(':');
+
+  if (startTimeValues.length != 2) {
+    throw FormatException('Некорректный формат времени: $time');
+  }
+
+  final hours = int.tryParse(startTimeValues[0]);
+  final minutes = int.tryParse(startTimeValues[1]);
+
+  if (hours == null || minutes == null) {
+    throw FormatException('Не удалось разобрать часы или минуты: $time');
+  }
+
+  return hours * 60 + minutes; // Возвращаем время в минутах с начала дня
+}
+
+// Функция сравнения времени пар
+int _compareLessonTimes(String timeA, String timeB) {
+  try {
+    final minutesA = _parseTime(timeA);
+    final minutesB = _parseTime(timeB);
+
+    return minutesA.compareTo(minutesB);
+  } catch (e) {
+    print('Ошибка парсинга времени: $e');
+    return 0;
+  }
+}
+
+// Функция для удаления всех пробелов из строки
+String _removeSpaces(String input) {
+  return input.replaceAll(' ', ''); // Убираем все пробелы
+}
+
+Widget _buildGroupColumns() {
+  final groupListViewScrollController = ScrollController();
+
+  return Scrollbar(
+    interactive: true,
+    controller: groupListViewScrollController,
+    thickness: 15,
+    radius: const Radius.circular(40),
+    child: ListView(
+      scrollDirection: Axis.horizontal,
       controller: groupListViewScrollController,
-      thickness: 15,
-      radius: const Radius.circular(40),
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        controller: groupListViewScrollController,
-        children: [
-          Row(
-            children: [
-              ListView.builder(
-                scrollDirection: Axis.horizontal,
-                shrinkWrap: true,
-                itemCount: _groups.length,
-                itemBuilder: (BuildContext context, int index) {
-                  String groupName = _groups[index];
-                  return FutureBuilder<List<Map<String, dynamic>>>(
-                    future: fetchGroupSchedule(groupName),
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Center(child: CircularProgressIndicator());
-                      } else if (snapshot.hasError) {
-                        return Center(child: Text('Error: ${snapshot.error}'));
-                      } else if (snapshot.hasData && snapshot.data!.isEmpty) {
-                        return Center(child: Text('Расписание для группы $groupName не найдено.'));
-                      } else {
-                        final List<Map<String, dynamic>> schedule = snapshot.data ?? [];
+      children: [
+        Row(
+          children: [
+            ListView.builder(
+              scrollDirection: Axis.horizontal,
+              shrinkWrap: true,
+              itemCount: _groups.length,
+              itemBuilder: (BuildContext context, int index) {
+                String groupName = _groups[index];
+                return FutureBuilder<List<Map<String, dynamic>>>(
+                  future: fetchGroupSchedule(groupName),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    // } else if (snapshot.hasError) {
+                    //   return Center(child: Text('Ошибка: ${snapshot.error}'));
+                    } else {
+                      final List<Map<String, dynamic>> schedule = snapshot.data ?? [];
 
-                        final Map<String, List<Map<String, dynamic>>> groupedByDay = {};
-                        for (var item in schedule) {
-                          String key = '${item['day_of_the_week']}';
-                          if (groupedByDay.containsKey(key)) {
-                            groupedByDay[key]!.add(item);
-                          } else {
-                            groupedByDay[key] = [item];
-                          }
+                      // Группировка расписания по дням недели
+                      final Map<String, List<Map<String, dynamic>>> groupedByDay = {};
+                      for (var item in schedule) {
+                        String key = '${item['day_of_the_week'] ?? 'Не указано'}';
+                        if (groupedByDay.containsKey(key)) {
+                          groupedByDay[key]!.add(item);
+                        } else {
+                          groupedByDay[key] = [item];
                         }
+                      }
 
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                          child: SingleChildScrollView(
-                            scrollDirection: Axis.vertical,
-                            child: Container(
-                              padding: const EdgeInsets.all(12.0),
-                              decoration: BoxDecoration(
-                                color: Colors.grey[200],
-                                borderRadius: BorderRadius.circular(8.0),
-                              ),
-                              width: _calculateGroupWidth(groupName),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  Text(
-                                    groupName,
-                                    style: const TextStyle(fontSize: 20.0, fontWeight: FontWeight.bold),
-                                    textAlign: TextAlign.center,
-                                  ),
-                                  const SizedBox(height: 8.0),
-                                  ...groupedByDay.entries.map((dayEntry) {
-                                    String dayOfWeek = dayEntry.key;
-                                    List<Map<String, dynamic>> dayItems = dayEntry.value;
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.vertical,
+                          child: Container(
+                            padding: const EdgeInsets.all(12.0),
+                            decoration: BoxDecoration(
+                              color: Colors.grey[200],
+                              borderRadius: BorderRadius.circular(8.0),
+                            ),
+                            width: _calculateGroupWidth(groupName),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Text(
+                                  groupName,
+                                  style: const TextStyle(fontSize: 20.0, fontWeight: FontWeight.bold),
+                                  textAlign: TextAlign.center,
+                                ),
+                                const SizedBox(height: 8.0),
+                                ...groupedByDay.entries.map((dayEntry) {
+                                  String dayOfWeek = dayEntry.key;
+                                  List<Map<String, dynamic>> dayItems = dayEntry.value;
 
-                                    final Map<String, List<Map<String, dynamic>>> groupedByPair = {};
-                                    for (var item in dayItems) {
-                                      String key = '${item['pair_name']}';
-                                      if (groupedByPair.containsKey(key)) {
-                                        groupedByPair[key]!.add(item);
-                                      } else {
-                                        groupedByPair[key] = [item];
-                                      }
+                                  final Map<String, List<Map<String, dynamic>>> groupedByPair = {};
+                                  for (var item in dayItems) {
+                                    String pairName = item['pair_name'] ?? 'Не указано';
+                                    String week = item['week'] ?? 'все недели';
+                                    String key = '${_removeSpaces(pairName)} - неделя $week'; // Убираем пробелы
+                                    if (groupedByPair.containsKey(key)) {
+                                      groupedByPair[key]!.add(item);
+                                    } else {
+                                      groupedByPair[key] = [item];
                                     }
+                                  }
 
-                                    return Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          dayOfWeek,
-                                          style: const TextStyle(fontSize: 25.0, fontWeight: FontWeight.bold),
-                                        ),
-                                        ...groupedByPair.entries.map((pairEntry) {
-                                          String pairName = pairEntry.key;
-                                          List<Map<String, dynamic>> items = pairEntry.value;
+                                  // Сортировка пар по времени
+                                  final sortedPairs = groupedByPair.entries.toList()
+                                    ..sort((a, b) => _compareLessonTimes(a.key.split(' ')[0], b.key.split(' ')[0]));
 
+                                  return Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        dayOfWeek,
+                                        style: const TextStyle(fontSize: 25.0, fontWeight: FontWeight.bold),
+                                      ),
+                                      ...sortedPairs.map((pairEntry) {
+                                        List<Map<String, dynamic>> items = pairEntry.value;
+                                        String pairName = pairEntry.key.split(' ')[0];
+
+                                        // Определяем пары для разных подгрупп и общие пары
+                                        List<Map<String, dynamic>> subgroup1Items = items.where((item) => item['subgroup'] == '1').toList();
+                                        List<Map<String, dynamic>> subgroup2Items = items.where((item) => item['subgroup'] == '2').toList();
+                                        List<Map<String, dynamic>> commonItems = items.where((item) => item['subgroup'] == 'нет разделения' || item['subgroup'] == 'не определена').toList();
+
+                                        // Проверка на наличие общих и отдельных пар
+                                        bool hasCommonPair = commonItems.isNotEmpty;
+                                        bool hasDifferentSubgroupPairs = subgroup1Items.isNotEmpty || subgroup2Items.isNotEmpty;
+                                        
+                                        if (hasCommonPair) {
                                           return Padding(
                                             padding: const EdgeInsets.all(8.0),
                                             child: Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
                                               children: [
+                                                // Полное время пары
                                                 Text(
-                                                  '$pairName пара',
-                                                  style: const TextStyle(fontSize: 20.0),
+                                                  // Проверяем, является ли pairName числом
+                                                  _isNumeric(pairName)
+                                                      ? '${_removeSpaces(pairName)} пара (${_getLessonTime(int.tryParse(pairName))})' // Убираем пробелы
+                                                      : '${_removeSpaces(pairName)} пара ${_getLessonTime(int.tryParse(pairName))}', // Без скобок
+                                                  style: const TextStyle(fontSize: 25.0, fontWeight: FontWeight.bold),
                                                 ),
-                                                const SizedBox(height: 12.0),
                                                 Container(
-                                                  padding: const EdgeInsets.all(8.0),
+                                                  padding: const EdgeInsets.all(12.0),
                                                   decoration: BoxDecoration(
                                                     color: Colors.white,
                                                     borderRadius: BorderRadius.circular(8.0),
-                                                  ),
-                                                  child: items.any((item) => item['subgroup'] != 'нет разделения' && item['subgroup'] != 'не определена')
-                                                      ? Row(
-                                                    children: [
-                                                      if (items.any((item) => item['subgroup'] == '1'))
-                                                        Expanded(
-                                                          flex: 1,
-                                                          child: Column(
-                                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                                            children: items
-                                                                .where((item) => item['subgroup'] == '1')
-                                                                .map((item) => _buildScheduleItem(item, TextAlign.start))
-                                                                .toList(),
-                                                          ),
-                                                        ),
-                                                      if (items.any((item) => item['subgroup'] == '2'))
-                                                        Expanded(
-                                                          flex: 1,
-                                                          child: Column(
-                                                            crossAxisAlignment: CrossAxisAlignment.end,
-                                                            children: items
-                                                                .where((item) => item['subgroup'] == '2')
-                                                                .map((item) => _buildScheduleItem(item, TextAlign.end))
-                                                                .toList(),
-                                                          ),
-                                                        ),
+                                                    boxShadow: [
+                                                      BoxShadow(
+                                                        color: Colors.grey.withOpacity(0.5),
+                                                        spreadRadius: 3,
+                                                        blurRadius: 5,
+                                                        offset: const Offset(0, 3),
+                                                      ),
                                                     ],
-                                                  )
-                                                      : Column(
+                                                  ),
+                                                  child: Column(
                                                     crossAxisAlignment: CrossAxisAlignment.center,
-                                                    children: items.map((item) => SizedBox(
-                                                      width: 900,
-                                                      child: _buildScheduleItem(item, TextAlign.center),
-                                                    )).toList(),
+                                                    children: commonItems
+                                                        .map((item) => _buildScheduleItem(item, TextAlign.center))
+                                                        .toList(),
                                                   ),
                                                 ),
                                               ],
                                             ),
                                           );
-                                        }),
-                                      ],
-                                    );
-                                  }),
-                                ],
-                              ),
+                                        }
+                                        
+                                        if (hasDifferentSubgroupPairs) {
+                                          return Padding(
+                                            padding: const EdgeInsets.all(8.0),
+                                            child: Container(
+                                              padding: const EdgeInsets.all(12.0),
+                                              decoration: BoxDecoration(
+                                                color: Colors.white,
+                                                borderRadius: BorderRadius.circular(8.0),
+                                                boxShadow: [
+                                                  BoxShadow(
+                                                    color: Colors.grey.withOpacity(0.5),
+                                                    spreadRadius: 3,
+                                                    blurRadius: 5,
+                                                    offset: const Offset(0, 3),
+                                                  ),
+                                                ],
+                                              ),
+                                              child: Column(
+                                                children: [
+                                                  // Полное время пары
+                                                  Text(
+                                                    // Проверяем, является ли pairName числом
+                                                    _isNumeric(pairName)
+                                                        ? '${_removeSpaces(pairName)} пара (${_getLessonTime(int.tryParse(pairName))})' // Убираем пробелы
+                                                        : '${_removeSpaces(pairName)} пара ${_getLessonTime(int.tryParse(pairName))}', // Без скобок
+                                                    style: const TextStyle(fontSize: 25.0, fontWeight: FontWeight.bold),
+                                                  ),
+                                                  Row(
+                                                    children: [
+                                                      Expanded(
+                                                        child: Row(
+                                                          children: [
+                                                            if (subgroup1Items.isNotEmpty)
+                                                              Expanded(
+                                                                flex: 1,
+                                                                child: Column(
+                                                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                                                  children: subgroup1Items
+                                                                      .map((item) => _buildScheduleItem(item, TextAlign.start))
+                                                                      .toList(),
+                                                                ),
+                                                              ),
+                                                            if (subgroup2Items.isNotEmpty)
+                                                              Expanded(
+                                                                flex: 1,
+                                                                child: Column(
+                                                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                                                  children: subgroup2Items
+                                                                      .map((item) => _buildScheduleItem(item, TextAlign.end))
+                                                                      .toList(),
+                                                                ),
+                                                              ),
+                                                          ],
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          );
+                                        }
+                                        return const SizedBox(); // Если ничего не нужно показывать, возвращаем пустую контейнеру
+                                      }).toList(),
+                                      const Divider(height: 40.0),
+                                    ],
+                                  );
+                                }).toList(),
+                              ],
                             ),
                           ),
-                        );
-                      }
-                    },
-                  );
-                },
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
+                        ),
+                      );
+                    }
+                  },
+                );
+              },
+            ),
+          ],
+        ),
+      ],
+    ),
+  );
+}
+
+// Функция для проверки, является ли строка числом
+bool _isNumeric(String str) {
+  if (str.isEmpty) return false;
+  return double.tryParse(str) != null; // Проверяем, можно ли преобразовать строку в число
+}
+
+
+
 
   Widget _buildScheduleItem(Map<String, dynamic> item, TextAlign textAlign) {
     TextEditingController disciplineController = TextEditingController(text: item['discipline']);
     TextEditingController weekController = TextEditingController(text: item['week']);
     TextEditingController classroomController = TextEditingController(text: item['classroom']);
     TextEditingController teacherNameController = TextEditingController(text: item['teacher_name']);
+    TextEditingController pairNameController = TextEditingController(text: item['pair_name']);
 
     return Column(
       crossAxisAlignment: textAlign == TextAlign.center ? CrossAxisAlignment.center :
@@ -389,6 +529,12 @@ class _TimetableGroupState extends State<TimetableGroup> {
                                           ),
                                         ),
                                         TextField(
+                                          controller: pairNameController,
+                                          decoration: const InputDecoration(
+                                            labelText: 'Номер пары',
+                                          ),
+                                        ),
+                                        TextField(
                                           controller: weekController,
                                           decoration: const InputDecoration(
                                             labelText: 'Неделя',
@@ -420,6 +566,7 @@ class _TimetableGroupState extends State<TimetableGroup> {
                                       onPressed: () async {
                                         await updateScheduleItem(item['id'].toString(), {
                                           'discipline': disciplineController.text,
+                                          'pair_name':pairNameController.text,
                                           'week': weekController.text,
                                           'classroom': classroomController.text,
                                           'teacher_name': teacherNameController.text,

@@ -269,11 +269,24 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       );
                     },
+                  ),const SizedBox(height: 2),
+                  FacultyButton(
+                    title: 'Колледж ЧелГУ',
+                    onPressed: () {
+                      setState(() {
+                        selectedFaculty = 'Колледж ЧелГУ';
+                      });
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => Schedule(selectedFaculty: selectedFaculty),
+                        ),
+                      );
+                    },
                   ),
                 ],
               ),
             ),
-
           ],
         ),
       ),
